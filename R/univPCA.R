@@ -115,11 +115,29 @@
   Y.tilde = Y.pred - matrix(mu, I.pred, D, byrow = TRUE)
   fit = matrix(0, nrow = I.pred, ncol = D)
   scores = matrix(NA, nrow = I.pred, ncol = npc)
+  #Create variables to keep track of scores which could not be estimated
+  scores_fail <- c()
+  scores_fail_partial <- c()
   # no calculation of confidence bands, no variance matrix
   for (i.subj in seq_len(I.pred)) {
     obs.points = which(!is.na(Y.pred[i.subj, ]))
     if (sigma2 == 0 & length(obs.points) < npc) {
-      stop("Measurement error estimated to be zero and there are fewer observed points than PCs; scores cannot be estimated.")
+      if(length(obs.points) == 0){
+        scores_fail <- c(scores_fail, i.subj)
+        scores[i.subj, ] <- rep(0, npc)
+        fit[i.subj, ] <- t(as.matrix(mu))
+        next  
+      } else{
+        scores_fail_partial <- c(scores_fail_partial, i.subj)
+        npc_temp <- length(obs.points)
+        Zcur = matrix(Z[obs.points, ], nrow = length(obs.points), 
+                      ncol = npc_temp)
+        ZtZ_sD.inv = solve(crossprod(Zcur) + sigma2 * D.inv[1:npc_temp, 1:npc_temp])
+        scores_temp = ZtZ_sD.inv %*% crossprod(Zcur, Y.tilde[i.subj, obs.points])
+        scores[i.subj, ] = c(scores_temp, rep(0, npc - npc_temp))
+        fit[i.subj, ] = t(as.matrix(mu)) + tcrossprod(scores[i.subj, ], efunctions)
+        next
+      }
     }
     Zcur = matrix(Z[obs.points, ], nrow = length(obs.points),
                   ncol = dim(Z)[2])
@@ -128,7 +146,15 @@
     fit[i.subj, ] = t(as.matrix(mu)) + tcrossprod(scores[i.subj, ], efunctions)
   }
   ret.objects = c("fit", "scores", "mu", "efunctions", "evalues",
-                  "npc", "sigma2") # add sigma2 to output
+                  "npc", "sigma2", "scores_fail") # add sigma2 to output
+  if(length(scores_fail) != 0){
+    warning(paste("Scores could not be estimated for", length(scores_fail), "subjects and were set to zero instead.
+                  Indices can be found in scores_fail. Lowering pve or npc can alleviate this problem."))
+  }
+  if(length(scores_fail_partial) != 0){
+    warning(paste("Scores could only be partially estimated for ", length(scores_fail_partial), "subjects. Scores which could not be estimated were set to zero.
+                  Indices can be found in scores_fail_partial. Lowering pve or npc can alleviate this problem."))
+  }
   ret = lapply(seq_len(length(ret.objects)), function(u) get(ret.objects[u]))
   names(ret) = ret.objects
   ret$estVar <- diag(cov.hat)
@@ -268,6 +294,8 @@ PACE <- function(funDataObject, predData = NULL, nbasis = 10, pve = 0.99, npc = 
               fit = funData(funDataObject@argvals, res$fit),
               npc = res$npc,
               sigma2 = res$sigma2,
-              estVar = funData(funDataObject@argvals, matrix(res$estVar, nrow = 1))
+              estVar = funData(funDataObject@argvals, matrix(res$estVar, nrow = 1)),
+              scores_fail = res$scores_fail
+              
   ))
 }
