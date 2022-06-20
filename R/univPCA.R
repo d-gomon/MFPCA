@@ -130,7 +130,7 @@
       } else{
         scores_fail_partial <- c(scores_fail_partial, i.subj)
         npc_temp <- length(obs.points)
-        Zcur = matrix(Z[obs.points, ], nrow = length(obs.points), 
+        Zcur = matrix(Z[obs.points, 1:npc_temp], nrow = length(obs.points), 
                       ncol = npc_temp)
         ZtZ_sD.inv = solve(crossprod(Zcur) + sigma2 * D.inv[1:npc_temp, 1:npc_temp])
         scores_temp = ZtZ_sD.inv %*% crossprod(Zcur, Y.tilde[i.subj, obs.points])
