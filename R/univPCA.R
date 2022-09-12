@@ -48,19 +48,41 @@
 #' @importFrom mgcv gam predict.gam s te
 #'   
 #' @keywords internal
-.PACE <- function(X, Y, Y.pred = NULL, nbasis = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
+.PACE <- function(X, Y, Y.pred = NULL, age.bl = NULL, age.bl.pred = NULL, nbasis = 10, nbasis_mu = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
 {
-  if (is.null(Y.pred))
+  if (is.null(Y.pred)){
     Y.pred = Y
+    Ypred_mis <- TRUE
+  } else{
+    Ypred_mis <- FALSE
+  }
+    
   D = NCOL(Y)
   if(D != length(X)) # check if number of observation points in X & Y are identical
     stop("different number of (potential) observation points differs in X and Y!")
   I = NROW(Y)
-  I.pred = NROW(Y.pred)
-  d.vec = rep(X, each = I) # use given X-values for estimation of mu
-  gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec, k = nbasis))
-  mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec = X))
-  Y.tilde = Y - matrix(mu, I, D, byrow = TRUE)
+  if(is.null(age.bl)){
+    I.pred = NROW(Y.pred)
+    d.vec = rep(X, each = I) # use given X-values for estimation of mu
+    gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec, k = nbasis_mu))
+    #length(mu) = length(X), because the range of values is equal everywhere.
+    mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec = X))
+    mu_mat <- t(as.matrix(mu))
+    Y.tilde = Y - matrix(mu, I, D, byrow = TRUE)
+  } else{
+    I.pred = NROW(Y.pred)
+    #CREATE NEW d.vec_adj, which represents age at baseline. Basically, substract age at baseline for each subject from X
+    #age.bl must be vector containing age in same time unit as funData object!!!
+    age.bl_order <- age.bl - min(age.bl)
+    #We create an adjusted vector, where each patient has individual starting times.
+    d.vec_adj <- rep(X, each = I) + age.bl_order
+    d.vec = rep(X, each = I) # use given X-values for estimation of mu
+    gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec_adj, k = nbasis_mu))
+    #mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = d.vec_adj))
+    mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj))))
+    mu_mat <- matrix(mu[match(d.vec_adj, sort(unique(d.vec_adj)))], I, D, byrow = TRUE)
+    Y.tilde = Y - mu_mat
+  }
   cov.sum = cov.count = cov.mean = matrix(0, D, D)
   for (i in seq_len(I)) {
     obs.points = which(!is.na(Y[i, ]))
@@ -112,7 +134,19 @@
   ####
   D.inv = diag(1/evalues, nrow = npc, ncol = npc)
   Z = efunctions
-  Y.tilde = Y.pred - matrix(mu, I.pred, D, byrow = TRUE)
+
+  if(!is.null(age.bl.pred) ){
+    age.bl_order_pred <- age.bl.pred - min(age.bl.pred)
+    d.vec_adj_pred <- rep(X, each = I.pred) + age.bl_order_pred
+    mu.pred = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj_pred))))
+    mu.pred_mat <- matrix(mu.pred[match(d.vec_adj_pred, sort(unique(d.vec_adj_pred)))], I.pred, D, byrow = TRUE)
+    Y.tilde = Y.pred - mu.pred_mat
+    mu_mat <- mu.pred_mat
+  } else if(!is.null(age.bl) & isTRUE(Ypred_mis)){
+    Y.tilde = Y.pred - mu_mat
+  } else{
+    Y.tilde = Y.pred - matrix(mu, I.pred, D, byrow = TRUE)
+  }
   fit = matrix(0, nrow = I.pred, ncol = D)
   scores = matrix(NA, nrow = I.pred, ncol = npc)
   #Create variables to keep track of scores which could not be estimated
@@ -125,7 +159,11 @@
       if(length(obs.points) == 0){
         scores_fail <- c(scores_fail, i.subj)
         scores[i.subj, ] <- rep(0, npc)
-        fit[i.subj, ] <- t(as.matrix(mu))
+        if(!is.null(age.bl)){
+          fit[i.subj, ] <- mu_mat[i.subj,]
+        } else{
+          fit[i.subj, ] <- t(as.matrix(mu))
+        }
         next  
       } else{
         scores_fail_partial <- c(scores_fail_partial, i.subj)
@@ -135,7 +173,11 @@
         ZtZ_sD.inv = solve(crossprod(Zcur) + sigma2 * D.inv[1:npc_temp, 1:npc_temp])
         scores_temp = ZtZ_sD.inv %*% crossprod(Zcur, Y.tilde[i.subj, obs.points])
         scores[i.subj, ] = c(scores_temp, rep(0, npc - npc_temp))
-        fit[i.subj, ] = t(as.matrix(mu)) + tcrossprod(scores[i.subj, ], efunctions)
+        if(!is.null(age.bl)){
+          fit[i.subj, ] <- mu_mat[i.subj,] + tcrossprod(scores[i.subj, ], efunctions)
+        } else{
+          fit[i.subj, ] = t(as.matrix(mu)) + tcrossprod(scores[i.subj, ], efunctions)
+        }
         next
       }
     }
@@ -143,10 +185,18 @@
                   ncol = dim(Z)[2])
     ZtZ_sD.inv = solve(crossprod(Zcur) + sigma2 * D.inv)
     scores[i.subj, ] = ZtZ_sD.inv %*% crossprod(Zcur, Y.tilde[i.subj, obs.points])
-    fit[i.subj, ] = t(as.matrix(mu)) + tcrossprod(scores[i.subj, ], efunctions)
+    if(!is.null(age.bl)){
+      fit[i.subj, ] <- mu_mat[i.subj,] + tcrossprod(scores[i.subj, ], efunctions)
+    } else{
+      fit[i.subj, ] = t(as.matrix(mu)) + tcrossprod(scores[i.subj, ], efunctions)
+    }
+  }
+  if(!is.null(age.bl)){
+    mu <- funData(argvals = sort(unique(d.vec_adj)), X = matrix(mu, nrow = 1))
+    #mu <- mu_mat
   }
   ret.objects = c("fit", "scores", "mu", "efunctions", "evalues",
-                  "npc", "sigma2", "scores_fail") # add sigma2 to output
+                  "npc", "sigma2", "scores_fail", "gam0") # add sigma2 to output
   if(length(scores_fail) != 0){
     warning(paste("Scores could not be estimated for", length(scores_fail), "subjects and were set to zero instead.
                   Indices can be found in scores_fail. Lowering pve or npc can alleviate this problem."))
@@ -160,6 +210,45 @@
   ret$estVar <- diag(cov.hat)
   return(ret)
 }
+
+
+
+
+#' @export
+#' @keywords internal
+de_mean <- function(X, Y, age.bl = NULL, nbasis){
+  D = NCOL(Y)
+  if(D != length(X)) # check if number of observation points in X & Y are identical
+    stop("different number of (potential) observation points differs in X and Y!")
+  I = NROW(Y)
+  if(is.null(age.bl)){
+    #I.pred = NROW(Y.pred)
+    d.vec = rep(X, each = I) # use given X-values for estimation of mu
+    gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec, k = nbasis_mu))
+    #length(mu) = length(X), because the range of values is equal everywhere.
+    mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec = X))
+    mu_mat <- t(as.matrix(mu))
+    Y.tilde = Y - matrix(mu, I, D, byrow = TRUE)
+  } else{
+    #I.pred = NROW(Y.pred)
+    #CREATE NEW d.vec_adj, which represents age at baseline. Basically, substract age at baseline for each subject from X
+    #age.bl must be vector containing age in same time unit as funData object!!!
+    age.bl_order <- age.bl - min(age.bl)
+    #We create an adjusted vector, where each patient has individual starting times.
+    d.vec_adj <- rep(X, each = I) + age.bl_order
+    d.vec = rep(X, each = I) # use given X-values for estimation of mu
+    gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec_adj, k = nbasis_mu))
+    #mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = d.vec_adj))
+    mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj))))
+    mu_mat <- matrix(mu[match(d.vec_adj, sort(unique(d.vec_adj)))], I, D, byrow = TRUE)
+    Y.tilde = Y - mu_mat
+  }
+  return(list(gam0 = gam0,
+              mu_mat = mu_mat,
+              Y.tilde = Y.tilde))
+}
+
+
 
 #' Univariate functional principal component analysis by smoothed covariance
 #' 
@@ -246,7 +335,7 @@
 #' 
 #'   par(oldPar)
 #' }
-PACE <- function(funDataObject, predData = NULL, nbasis = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
+PACE <- function(funDataObject, predData = NULL, age.bl = NULL, age.bl.pred = NULL, nbasis = 10, nbasis_mu = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
 {
   # check inputs
   if(! class(funDataObject) %in% c("funData", "irregFunData"))
@@ -269,7 +358,6 @@ PACE <- function(funDataObject, predData = NULL, nbasis = 10, pve = 0.99, npc = 
   
   if(!all(is.numeric(nbasis), length(nbasis) == 1, nbasis > 0))
     stop("Parameter 'nbasis' must be passed as a number > 0.")
-  
   if(!all(is.numeric(pve), length(pve) == 1, 0 <= pve, pve <= 1))
     stop("Parameter 'pve' must be passed as a number between 0 and 1.")
   
@@ -283,11 +371,16 @@ PACE <- function(funDataObject, predData = NULL, nbasis = 10, pve = 0.99, npc = 
     stop("Parameter 'cov.weight.type' must be passed as a character.")
   
   
-  res <- .PACE(X = funDataObject@argvals[[1]], funDataObject@X, Y.pred = Y.pred,
-               nbasis = nbasis, pve = pve, npc = npc, makePD = makePD,
+  res <- .PACE(X = funDataObject@argvals[[1]], funDataObject@X, age.bl = age.bl, age.bl.pred = age.bl.pred, Y.pred = Y.pred,
+               nbasis = nbasis, nbasis_mu = nbasis_mu, pve = pve, npc = npc, makePD = makePD,
                cov.weight.type = cov.weight.type)
-  
-  return(list(mu = funData(funDataObject@argvals, matrix(res$mu, nrow = 1)),
+  if(is.null(age.bl)){
+    mu_ret <- funData(funDataObject@argvals, matrix(res$mu, nrow = 1))
+  } else{
+    #mu_ret <- funData(, mu_ret)
+    mu_ret <- res$mu
+  }
+  return(list(mu = mu_ret,
               values = res$evalues,
               functions = funData(funDataObject@argvals, t(res$efunctions)),
               scores = res$scores,
@@ -295,7 +388,8 @@ PACE <- function(funDataObject, predData = NULL, nbasis = 10, pve = 0.99, npc = 
               npc = res$npc,
               sigma2 = res$sigma2,
               estVar = funData(funDataObject@argvals, matrix(res$estVar, nrow = 1)),
-              scores_fail = res$scores_fail
+              scores_fail = res$scores_fail,
+              gam0 = res$gam0
               
   ))
 }

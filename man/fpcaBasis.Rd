@@ -8,6 +8,9 @@ functional data on one-dimensional domains}
 fpcaBasis(
   funDataObject,
   nbasis = 10,
+  nbasis_mu = 10,
+  age.bl = NULL,
+  age.bl.pred = NULL,
   pve = 0.99,
   npc = NULL,
   makePD = FALSE,

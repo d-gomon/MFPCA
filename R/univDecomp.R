@@ -227,14 +227,17 @@ givenBasis <- function(funDataObject, functions, scores = NULL, ortho = NULL)
 #      main = "Estimated eigenfunctions\n(flipped)")
 # 
 # par(oldpar)
-fpcaBasis <- function(funDataObject, nbasis = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
+fpcaBasis <- function(funDataObject, nbasis = 10, nbasis_mu = 10, age.bl = NULL, age.bl.pred = NULL, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
 {
-  FPCA <- PACE(funDataObject, predData = NULL, nbasis, pve, npc, makePD, cov.weight.type)
+  FPCA <- PACE(funDataObject, predData = NULL, age.bl = age.bl, age.bl.pred = age.bl.pred, nbasis = nbasis, nbasis_mu = nbasis_mu, pve = pve, npc = npc, makePD = makePD, cov.weight.type = cov.weight.type)
   
   return(list(scores = FPCA$scores,
               ortho = TRUE,
               functions = FPCA$functions,
-              meanFunction = FPCA$mu
+              meanFunction = FPCA$mu,
+              sigma2 = FPCA$sigma2,
+              evalues = FPCA$values,
+              gam0 = FPCA$gam0
   ))
 }
 

@@ -363,7 +363,7 @@ calcBasisIntegrals <- function(basisFunctions, dimSupp, argvals)
 #' par(oldPar)
 MFPCA <- function(mFData, M, uniExpansions, weights = rep(1, length(mFData)), fit = FALSE, approx.eigen = FALSE,
                   bootstrap = FALSE, nBootstrap = NULL, bootstrapAlpha = 0.05, bootstrapStrat = NULL, 
-                  verbose = options()$verbose)
+                  verbose = options()$verbose, age.bl = NULL, landmark = NULL)
 {
   if(! inherits(mFData, "multiFunData"))
     stop("Parameter 'mFData' must be passed as a multiFunData object.")
@@ -372,6 +372,14 @@ MFPCA <- function(mFData, M, uniExpansions, weights = rep(1, length(mFData)), fi
   p <- length(mFData)
   # number of observations
   N <- nObs(mFData)
+  
+  if(!is.null(age.bl)){
+    for(i in seq_along(uniExpansions)){
+      uniExpansions[[i]]$age.bl = age.bl
+    }
+  }
+  
+
   
   if(!all(is.numeric(M), length(M) == 1, M > 0))
     stop("Parameter 'M' must be passed as a number > 0.")
@@ -480,11 +488,17 @@ MFPCA <- function(mFData, M, uniExpansions, weights = rep(1, length(mFData)), fi
   res$meanFunction <- m # return mean function, too
   
   names(res$functions) <- names(mFData)
-  
   if(fit)
   {
-    res$fit <- m + res$fit # add mean function to fits
-    names(res$fit) <- names(mFData)
+    if(typeof(m[[1]]) == "S4"){
+      res$fit <- m + res$fit # add mean function to fits
+      names(res$fit) <- names(mFData)
+    } else{
+      for(i in 1:length(m)){
+        res$fit[[i]]@X <- res$fit[[i]]@X + m[[1]]
+        names(res$fit) <- names(mFData)
+      }
+    }
   } 
   
   # give correct names
@@ -604,7 +618,8 @@ MFPCA <- function(mFData, M, uniExpansions, weights = rep(1, length(mFData)), fi
   }
   
   class(res) <- "MFPCAfit"
-
+  res$uniExpansions <- uniExpansions
+  res$uniBasis <- uniBasis
   return(res)
 }
 

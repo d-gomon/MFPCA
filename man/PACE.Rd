@@ -7,7 +7,10 @@
 PACE(
   funDataObject,
   predData = NULL,
+  age.bl = NULL,
+  age.bl.pred = NULL,
   nbasis = 10,
+  nbasis_mu = 10,
   pve = 0.99,
   npc = NULL,
   makePD = FALSE,

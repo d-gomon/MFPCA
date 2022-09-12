@@ -16,7 +16,9 @@ MFPCA(
   nBootstrap = NULL,
   bootstrapAlpha = 0.05,
   bootstrapStrat = NULL,
-  verbose = options()$verbose
+  verbose = options()$verbose,
+  age.bl = NULL,
+  landmark = NULL
 )
 }
 \arguments{
