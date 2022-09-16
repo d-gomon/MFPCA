@@ -11,6 +11,9 @@
 #' @param verbose Should intermediary results be printed?
 #' @param landmark_time Time at which to landmark
 #' @param Y_train Survival info (time, event) for train data. Only required in case of landmarking!
+#' @param type What summary should be returned? Default is the multivariate scores ("scores"),
+#' other choices are Area under curve of predicted process ("AUC") or predicted process at
+#' landmark time ("pp"). Default is "scores".
 #' 
 #' 
 #' @param step1 Output of landmark_data()
@@ -22,11 +25,16 @@
 #'
 
 
-get_mscores <- function(step1, M = NULL, uniExpansions = NULL, verbose = FALSE){
+get_mscores <- function(step1, type = c("scores", "AUC", "pp"), M = NULL, 
+                        uniExpansions = NULL, verbose = FALSE){
   if(!missing(step1)){
     list2env(step1, envir = environment())
     landmark_time <- time
     Y_train <- Y_surv_train
+  }
+  
+  if(type == c("scores", "AUC", "pp")){
+    type <- "scores"
   }
   
   
@@ -36,8 +44,13 @@ get_mscores <- function(step1, M = NULL, uniExpansions = NULL, verbose = FALSE){
       stop("Training and prediction data should be of same dimensions.")
     }
     #First we fit the mFPCA model to calculate scores and vectors for training_data
-    MFPCAfit <- MFPCA(mFData_train, M = M, uniExpansions = uniExpansions, verbose = verbose,
-                      age.bl = age_train)
+    if(type != "scores"){
+      MFPCAfit <- MFPCA(mFData_train, M = M, uniExpansions = uniExpansions, verbose = verbose,
+                        age.bl = age_train, fit = TRUE)
+    } else{
+      MFPCAfit <- MFPCA(mFData_train, M = M, uniExpansions = uniExpansions, verbose = verbose,
+                        age.bl = age_train)  
+    }
     uniExpansions <- MFPCAfit$uniExpansions
   } 
   
@@ -66,6 +79,23 @@ get_mscores <- function(step1, M = NULL, uniExpansions = NULL, verbose = FALSE){
   } else{
     mscores = NULL
   }
+  
+  
+  # #Finish later
+  # if(type != "scores"){
+  #   #We need to calculate area under the curve.
+  #   #MFPCAfit will have the truncated Karhuhen Loeve in MFPCAfit$fit for training data
+  #   #Calculate it for test data as well, using predict.MFPCAfit
+  #   trunc_KL_pred <- predict(step1$MFPCAfit, scores = mscores)
+  #   trunc_KL_train <- step1$MFPCAfit$fit
+  #   if(type == "AUC"){
+  #     #integrate the trunc_kl_pred
+  #   } else if(type == "pp"){
+  #     #Determine value at last time point before landmark.
+  #   }
+  # } else{
+  # 
+  # }
   
   
   #Construct the predictors for Step 3 of our method.

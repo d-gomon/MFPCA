@@ -1,4 +1,5 @@
 #' @title Cross validation procedure for MFPCCox
+#' @description Cross validate MFPCCox procedure
 #' 
 #' 
 #' @param mdat A multiFunData object containing longitudinal covariates

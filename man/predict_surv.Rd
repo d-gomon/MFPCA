@@ -4,12 +4,14 @@
 \alias{predict_surv}
 \title{Predict survival probabilities for new patients (step 3)}
 \usage{
-predict_surv(step2, times_pred = step2$landmark_time)
+predict_surv(step2, times_pred = step2$landmark_time, AUC_train = FALSE)
 }
 \arguments{
 \item{step2}{output of get_mscores}
 
 \item{times_pred}{Times at which prediction is required. Default = landmark_time (useless).}
+
+\item{AUC_train}{Should AUC for training data be determined?}
 }
 \description{
 Predict survival for prediction data

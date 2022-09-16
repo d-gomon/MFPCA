@@ -10,8 +10,8 @@ landmark_data(
   X_baseline_train,
   Y_surv_train,
   age_train = NULL,
-  mFData_pred,
-  X_baseline_pred,
+  mFData_pred = NULL,
+  X_baseline_pred = NULL,
   Y_surv_pred = NULL,
   age_pred = NULL
 )

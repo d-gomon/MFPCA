@@ -4,10 +4,20 @@
 \alias{get_mscores}
 \title{Predict multivariate scores for multiFunData (step 2)}
 \usage{
-get_mscores(step1, M = NULL, uniExpansions = NULL, verbose = FALSE)
+get_mscores(
+  step1,
+  type = c("scores", "AUC", "pp"),
+  M = NULL,
+  uniExpansions = NULL,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{step1}{Output of landmark_data()}
+
+\item{type}{What summary should be returned? Default is the multivariate scores ("scores"),
+other choices are Area under curve of predicted process ("AUC") or predicted process at
+landmark time ("pp"). Default is "scores".}
 
 \item{M}{Number of dimensions to use in mFPCA}
 
