@@ -25,7 +25,7 @@
 #'
 
 
-get_mscores <- function(step1, type = c("scores", "AUC", "pp"), M = NULL, 
+get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = NULL, 
                         uniExpansions = NULL, verbose = FALSE){
   if(!missing(step1)){
     list2env(step1, envir = environment())
@@ -33,10 +33,9 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp"), M = NULL,
     Y_train <- Y_surv_train
   }
   
-  if(type == c("scores", "AUC", "pp")){
+  if(length(type) > 1){
     type <- "scores"
   }
-  
   
   #Fit MFPCA on Training data
   if(inherits(mFData_train, "multiFunData")){
@@ -81,29 +80,50 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp"), M = NULL,
   }
   
   
-  # #Finish later
-  # if(type != "scores"){
-  #   #We need to calculate area under the curve.
-  #   #MFPCAfit will have the truncated Karhuhen Loeve in MFPCAfit$fit for training data
-  #   #Calculate it for test data as well, using predict.MFPCAfit
-  #   trunc_KL_pred <- predict(step1$MFPCAfit, scores = mscores)
-  #   trunc_KL_train <- step1$MFPCAfit$fit
-  #   if(type == "AUC"){
-  #     #integrate the trunc_kl_pred
-  #   } else if(type == "pp"){
-  #     #Determine value at last time point before landmark.
-  #   }
-  # } else{
-  # 
-  # }
+  #Finish later
+  if(type == "scores"){
+    #Construct the predictors for Step 3 of our method.
+    long_sum_train <- MFPCAfit$scores
+    long_sum_pred <- mscores
+  } else if(type == "AUC"){
+    #We need to calculate area under the curve.
+    #MFPCAfit will have the truncated Karhuhen Loeve in MFPCAfit$fit for training data
+    #Calculate it for test data as well, using predict.MFPCAfit
+    trunc_KL_pred <- predict(MFPCAfit, scores = mscores)
+    trunc_KL_train <- MFPCAfit$fit
+    
+    #Integrate to get AUC
+    long_sum_train <- sapply(trunc_KL_train, integrate)
+    long_sum_pred <- sapply(trunc_KL_pred, integrate)
+    
+  } else if(type == "pp"){
+    trunc_KL_pred <- predict(MFPCAfit, scores = mscores)
+    trunc_KL_train <- MFPCAfit$fit
+    
+    fObs_pred <- subset(trunc_KL_pred, 
+                        argvals = list(tail(trunc_KL_pred[[1]]@argvals[[1]], 1)))
+    fObs_train <- subset(trunc_KL_train, 
+                         argvals = list(tail(trunc_KL_train[[1]]@argvals[[1]], 1)))
+    
+    long_sum_train <- matrix(NA, nrow = nObs(fObs_train), ncol = length(fObs_train))
+    long_sum_pred <- matrix(NA, nrow = nObs(fObs_pred), ncol = length(fObs_pred))
+    for(i in 1:length(fObs_pred)){
+      long_sum_train[,i] <- fObs_train[[i]]@X
+      long_sum_pred[,i] <- fObs_pred[[i]]@X
+    }
+  } else if(type == "uscores"){
+    allScores_train <- foreach::foreach(j = seq_len(p), .combine = "cbind")%do%{MFPCAfit$uniBasis[[j]]$scores}
+    long_sum_pred <- allScores
+    long_sum_train <- allScores_train
+  }
   
-  
-  #Construct the predictors for Step 3 of our method.
-  X_train <- cbind(MFPCAfit$scores, X_baseline_train)
+  #Add the summaries to the baseline covariates
+  X_train <- cbind(long_sum_train, X_baseline_train)
   X_train <- model.matrix(~.-1, X_train)
   
-  X_pred <- cbind(mscores, X_baseline_pred)
+  X_pred <- cbind(long_sum_pred, X_baseline_pred)
   X_pred <- model.matrix(~.-1, X_pred)
+
   
   return(list(X_train = X_train,
               Y_train = Y_train,

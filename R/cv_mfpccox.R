@@ -12,10 +12,17 @@
 #' @param age Variable to perform alternative de-meaning with.
 #' @param n_folds Number of folds for cross validation.
 #' @param seed Seed for random number generation
+#' 
+#' 
+#' @import pbapply
+#' @import parallel
+#' 
 
 cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
                        times_pred = NULL, M = 50, uniExpansions = NULL, 
-                       age = NULL, n_folds = 10, seed = 01041996){
+                       age = NULL, type = c("scores", "AUC", "pp", "uscores"), 
+                       n_folds = 10, seed = 01041996, verbose = FALSE,
+                       reg_baseline = FALSE, reg_long = TRUE){
   set.seed(seed)
   
   #First we landmark the data
@@ -60,11 +67,13 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     message("Step 2/3")
     #Perform Step 2 of procedure. 
     step2 <- get_mscores(step1 = step1, M = M, 
-                         uniExpansions = uniExpansions, verbose = TRUE)
+                         uniExpansions = uniExpansions,
+                         type = type, verbose = verbose)
 
     
     message("Step 3/3")
-    step3 <- predict_surv(step2 = step2, times_pred = times_pred)
+    step3 <- predict_surv(step2 = step2, times_pred = times_pred, 
+                          reg_baseline = reg_baseline, reg_long = reg_long)
     
     #Calculate AUC for current fold
     AUC_temp[i, ] <- step3$AUC_pred
@@ -77,6 +86,46 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
   names(Brier) <- times_pred
   return(list(AUC_pred = AUC,
               Brier_pred = Brier))
+}
+
+
+rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
+                       times_pred = NULL, M = 50, uniExpansions = NULL, 
+                       age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 5, 
+                       n_folds = 10, seed = 01041996, displaypb = FALSE, 
+                       n_cores = 1, verbose = FALSE,
+                       reg_baseline = FALSE, reg_long = TRUE){
+  
+  if(n_cores > 1){
+    #Create a cluster for parallel computing and error check
+    real_cores <- detectCores()
+    if(n_cores > real_cores){
+      warning(paste0("More cores requested (", ncores ,") than detected (", real_cores,") by R. \n Proceed at own risk."))
+    }
+    cl <- makeCluster(n_cores)
+  } else{
+    cl <- NULL
+  }
+  if(displaypb){
+    pboptions(type = "timer")
+  } else{
+    pboptions(type = "none")
+  }
+  set.seed(seed)
+  out <- pblapply(1:n_reps, function(x) { suppressMessages(
+    cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, 
+    times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
+    age = age, type = type, n_folds = n_folds,
+    seed = seed + x, verbose = verbose, reg_baseline = reg_baseline,
+    reg_long = reg_long))
+    }, cl = cl)
+  AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
+  for(i in 1:length(out)){
+    AUC_meas[,i] <- out[[i]]$AUC_pred
+  }
+  AUC <- rowMeans(AUC_meas)
+  names(AUC) <- times_pred
+  AUC
 }
 
 

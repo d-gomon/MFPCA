@@ -13,6 +13,7 @@ cv_mfpccox(
   M = 50,
   uniExpansions = NULL,
   age = NULL,
+  type = c("scores", "AUC", "pp"),
   n_folds = 10,
   seed = 1041996
 )

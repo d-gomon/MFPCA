@@ -10,33 +10,56 @@
 #' 
 
 
-predict_surv <- function(step2, times_pred = step2$landmark_time, AUC_train = FALSE){
+predict_surv <- function(step2, times_pred = step2$landmark_time, 
+                         AUC_train = FALSE, reg_baseline = FALSE, reg_long = TRUE){
   
   if(!missing(step2)){
     list2env(step2, envir = environment())
   }
   
-  p_long <- ncol(scores_train)
-  p_baseline <- ncol(X_train) - p_long
+  
+  p_baseline <- ncol(step1$X_baseline_train)
+  p_long <- ncol(X_train) - p_baseline
+  
+  if(isTRUE(reg_baseline)){
+    reg_base <- rep(1, p_baseline)
+  } else{
+    reg_base <- rep(0, p_baseline)
+  }
+  if(isTRUE(reg_long)){
+    reg_lon <- rep(1, p_long)
+  } else{
+    reg_lon <- rep(0, p_long)
+  }
+  
+
 
   #First we fit a cox model on the training data. 
   #Use CV in glmnet to determine optimal lambda parameter on train data
   #and fit the regularized cox model on training data
+  if(isFALSE(reg_baseline) & isFALSE(reg_long)){
+    #cv_fit_train <- list(lambda.min = 0)
+    reg_lon <- rep(1, p_long)
+  } 
   cv_fit_train <- cv.glmnet(x = X_train, y = Y_train,
                             family = "cox", type.measure = "C",
-                            penalty.factor = c(rep(1, p_long), rep(0, p_baseline))) 
-  fit_surv_train <- glmnet(X_train, Y_train,
-                           penalty.factor = c(rep(1, p_long), rep(0, p_baseline)),
-                           family = "cox", lambda = cv_fit_train$lambda.min)
-
-  lp_train <- predict(fit_surv_train, newx = X_train, type = "link")
-  lp_pred <- predict(fit_surv_train, newx = X_pred, type = "link")
+                            penalty.factor = c(reg_lon, reg_base))
+  if(isFALSE(reg_baseline) & isFALSE(reg_long)){
+    s_opt <- 0
+  } else{
+    s_opt <- cv_fit_train$lambda.min
+  }
+  
+  
+  lp_train <- predict(cv_fit_train, newx = X_train, type = "link", s = s_opt)
+  lp_pred <- predict(cv_fit_train, newx = X_pred, type = "link", s = s_opt)
+  
   
 
   #Use the hazard to output predicted survival probabilities. 
   #But use the linear predictor to evaluate AUC - less smoothing so more accurate.
   haz <- hdnom::glmnet_basesurv(time = Y_train[, "time"], event = Y_train[, "status"], 
-                                lp = predict(object = fit_surv_train, newx = X_train),
+                                lp = lp_train,
                                 times.eval = c(landmark_time, times_pred), 
                                 centered = FALSE)
   #Determine baseline survival probability at landmark time:
@@ -120,7 +143,7 @@ predict_surv <- function(step2, times_pred = step2$landmark_time, AUC_train = FA
   }
   return(list(prob_surv_pred = prob_surv_pred,
               prob_surv_train = prob_surv_train,
-              cox_train = fit_surv_train,
+              cox_train = cv_fit_train,
               times_pred = times_pred,
               AUC_pred = AUC_pred,
               AUC_train = AUC_train,
