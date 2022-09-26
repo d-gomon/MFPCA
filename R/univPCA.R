@@ -80,7 +80,7 @@
     gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec_adj, k = nbasis_mu))
     #mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = d.vec_adj))
     mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj))))
-    mu_mat <- matrix(mu[match(d.vec_adj, sort(unique(d.vec_adj)))], I, D, byrow = TRUE)
+    mu_mat <- matrix(mu[match(d.vec_adj, sort(unique(d.vec_adj)))], I, D, byrow = FALSE)
     Y.tilde = Y - mu_mat
   }
   cov.sum = cov.count = cov.mean = matrix(0, D, D)
@@ -139,7 +139,7 @@
     age.bl_order_pred <- age.bl.pred - min(age.bl.pred)
     d.vec_adj_pred <- rep(X, each = I.pred) + age.bl_order_pred
     mu.pred = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj_pred))))
-    mu.pred_mat <- matrix(mu.pred[match(d.vec_adj_pred, sort(unique(d.vec_adj_pred)))], I.pred, D, byrow = TRUE)
+    mu.pred_mat <- matrix(mu.pred[match(d.vec_adj_pred, sort(unique(d.vec_adj_pred)))], I.pred, D, byrow = FALSE)
     Y.tilde = Y.pred - mu.pred_mat
     mu_mat <- mu.pred_mat
   } else if(!is.null(age.bl) & isTRUE(Ypred_mis)){
