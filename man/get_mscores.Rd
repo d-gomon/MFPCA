@@ -6,7 +6,7 @@
 \usage{
 get_mscores(
   step1,
-  type = c("scores", "AUC", "pp"),
+  type = c("scores", "AUC", "pp", "uscores"),
   M = NULL,
   uniExpansions = NULL,
   verbose = FALSE

@@ -78,8 +78,6 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
   } else{
     mscores = NULL
   }
-  
-  
   #Finish later
   if(type == "scores"){
     #Construct the predictors for Step 3 of our method.
@@ -116,7 +114,6 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
     long_sum_pred <- allScores
     long_sum_train <- allScores_train
   }
-  
   #Add the summaries to the baseline covariates
   X_train <- cbind(long_sum_train, X_baseline_train)
   X_train <- model.matrix(~.-1, X_train)
@@ -136,80 +133,7 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
               step1 = step1))
 }
 
-predict_mscores <- function(mFData_train, mFData_pred = NULL, 
-                            age.bl = NULL, age.bl.pred = NULL, 
-                            M = NULL, uniExpansions = NULL, verbose = FALSE,
-                            landmark_time = NULL, Y_train = NULL){
-  
-  #Some input checks
-  #If mFData_train is specified as DATA, instead of mFPCA output: run MFPCA
-  if(inherits(mFData_train, "multiFunData")){
-    if(length(mFData_train) != length(mFData_pred)){
-      stop("Training and prediction data should be of same dimensions.")
-    }
-    if(!is.null(landmark_time)){
-      if(is.null(Y_train)){
-        stop("Cannot landmark without survival information. Please specify 'Y_train'.")
-      }
-      #Determine which argvals to use for landmarking by cutting of at landmark_time
-      max_id <- max(which(mFData_train[[1]]@argvals[[1]] <= landmark_time))
-      #Determine which observations to use by eliminating people with failures before landmark_time (requires Y_train)
-      which_alive <- which(Y_train[, "time"] > landmark_time)
-      #original num of observations
-      nrow_orig <- nrow(mFData_train[[1]]@X)
-      #Subset the data according to above 2 conditions.
-      mFData_train <- subset(mFData_train, obs = which_alive, argvals = list(mFData_train[[1]]@argvals[[1]][1:max_id]))
-      warning(paste("Retained ",nrow(mFData_train[[1]]@X)*100/nrow_orig, "percent of original observations due to landmarking."))
-      #If we landmarked, and want to de-mean according to age, we should adjust the age.bl vars
-      #to remove baseline covs from people removed in landmarking.
-      if(!is.null(age.bl)){
-        age.bl <- age.bl[which_alive]
-      }
-    }
-    #First we fit the mFPCA model to calculate scores and vectors for training_data
-    MFPCAfit <- MFPCA(mFData_train, M = M, uniExpansions = uniExpansions, verbose = verbose,
-                      age.bl = age.bl)
-    uniExpansions <- MFPCAfit$uniExpansions
-  } else if(inherits(mFData_train, "MFPCAfit")){ #If already MFPCAfit, extract info
-    if(!is.null(landmark_time)){
-      warning("Cannot landmark a MFPCAfit, make sure the fit is landmarked.")
-      #Use subset(mFData_train, failtimes < landmark, argvals < landmark)
-    }
-    MFPCAfit <- mFData_train
-    uniExpansions <- MFPCAfit$uniExpansions
-  }
-  if(!is.null(mFData_pred)){
-    if(!is.null(landmark_time)){
-      mFData_pred <- subset(mFData_pred, argvals = list(mFData_train[[1]]@argvals[[1]][1:max_id]))
-    }
-    #Data preparation and checks
-    c <- MFPCAfit$vectors
-    p <- length(mFData_pred)
-    #Old number of functional principal components
-    M <- ncol(c)
-    
-    #Then we need to predict the uFPCA scores for mFData_pred from mFData_train fit.
-    #For this we need to re-fit uFPCA for mFData_train
-    UFPCA_pred <- lapply(1:p, FUN = function(x){predict_uscores(UFPCAfit = MFPCAfit$uniBasis[[x]],
-                                                                           uData_pred = mFData_pred[[x]],
-                                                                           age.bl.pred = age.bl.pred,
-                                                                age.bl = age.bl)})
-    
-    
-    allScores <- foreach::foreach(j = seq_len(p), .combine = "cbind")%do%{UFPCA_pred[[j]]$scores}
-    #Columns of c contain eigenvectors. See ?eigen for confirmation
-    mscores <- allScores %*% c
-    #normalization factor
-    mscores <- as.matrix(mscores %*% diag(sqrt(MFPCAfit$values) * MFPCAfit$normFactors, nrow = M, ncol = M)) # normalization
-    namesList <- lapply(mFData_pred, names)
-    rownames(mscores) <- namesList[[1]]
-  } else{
-    mscores = NULL
-  }
-  return(list(mscores_test = mscores,
-              mscores_train = MFPCAfit$scores,
-              MFPCAfit = MFPCAfit))
-}
+
 
 
 
@@ -229,13 +153,10 @@ predict_uscores <- function(UFPCAfit, uData_pred, age.bl.pred = NULL, age.bl = N
   D.inv = diag(1/evalues, nrow = npc, ncol = npc)
   
   if(!is.null(age.bl.pred) ){
-    age.bl_order_pred <- age.bl.pred - min(age.bl)
-    d.vec_adj_pred <- rep(X, each = I.pred) + age.bl_order_pred
-    #predict values at all distinct ages
-    mu.pred = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj_pred))))
-    #create matrix with rows = subjects and columns = number of observations
-    #match subject means with correct entry in prediction
-    mu.pred_mat <- matrix(mu.pred[match(d.vec_adj_pred, sort(unique(d.vec_adj_pred)))], I.pred, D, byrow = TRUE)
+    d.vec_pred <- rep(X, each = I.pred)
+    d.vec_age_pred <- rep(X, each = I.pred) + age.bl.pred
+    mu.pred = mgcv::predict.gam(gam0, newdata = data.frame(d.vec = d.vec_pred, d.vec_age = d.vec_age_pred))
+    mu.pred_mat <- matrix(mu.pred, I.pred, D, byrow = FALSE)
     Y.tilde = Y.pred - mu.pred_mat
     mu_mat <- mu.pred_mat
   } else{
@@ -306,49 +227,3 @@ predict_uscores <- function(UFPCAfit, uData_pred, age.bl.pred = NULL, age.bl = N
   return(ret)
 }
 
-predict_mscores_old <- function(MFPCAfit, mFData_pred, uniExpansions = NULL, M = NULL){
-  
-  #mdat, M = 50, uniExpansions = uniexp,
-  #fit = TRUE, verbose = TRUE
-  
-  
-  #Data preparation and checks
-  c <- MFPCAfit$vectors
-  p <- length(mFData_pred)
-  #Old number of functional principal components
-  M_old <- ncol(c)
-  
-  #Use the same uniExpansions for new data as for old data
-  #If this is not done, you cannot consistently generate predictions for new data
-  #as the dimension of the principal components can be different
-  if(is.null(uniExpansions)){
-    if(!is.null(MFPCAfit$uniExpansions)){
-      uniExpansions <- MFPCAfit$uniExpansions
-    } else{
-      uniExpansions <- rep(list(list(type = "uFPCA", pve = 0.99)), p) 
-    }
-  }
-  #calculate univariate FPCA for the new data.
-  #Returns a list of length(mFData_pred) with each component a uFPCA output (.PACE)
-  uniBasis <- mapply(function(expansion, data){do.call(univDecomp, c(list(funDataObject = data), expansion))},
-                     expansion = uniExpansions, data = mFData_pred, SIMPLIFY = FALSE)
-  #determine maximal number of principal components
-  npc <- vapply(uniBasis, function(x){dim(x$scores)[2]}, FUN.VALUE = 0) # get number of univariate basis functions
-  if(sum(npc) < M_old){
-    stop("Not enough principal components calculated during uFPCA, please increase pve or specify 'uniExpansions = NULL'.")
-  }
-  if(is.null(M)){
-    M <- M_old
-  } else if(M > sum(npc)){
-    M <- sum(npc)
-    warning("Function MFPCA: total number of univariate basis functions is smaller than given M. M was set to ", sum(npc), ".")
-  } 
-  
-  allScores <- foreach::foreach(j = seq_len(p), .combine = "cbind")%do%{uniBasis[[j]]$scores}
-  #Columns of c contain eigenvectors. See ?eigen for confirmation
-  mscores <- allScores %*% c
-  #normalization factor
-  mscores <- as.matrix(mscores %*% diag(sqrt(MFPCAfit$values) * MFPCAfit$normFactors, nrow = M, ncol = M)) # normalization
-  
-  return(mscores)
-}
