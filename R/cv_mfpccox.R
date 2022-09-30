@@ -16,6 +16,8 @@
 #' 
 #' @import pbapply
 #' @import parallel
+#' @import doSNOW
+#' @import devtools
 #' 
 
 cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
@@ -103,6 +105,10 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
       warning(paste0("More cores requested (", ncores ,") than detected (", real_cores,") by R. \n Proceed at own risk."))
     }
     cl <- makeCluster(n_cores)
+    clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
+                        "M", "uniExpansions", "age", "type", "n_folds", "seed",
+                        "verbose", "reg_baseline", "reg_long"),
+                  envir=environment())
   } else{
     cl <- NULL
   }
@@ -112,21 +118,30 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     pboptions(type = "none")
   }
   set.seed(seed)
-  out <- pblapply(1:n_reps, function(x) { suppressMessages(
+  out <- pblapply(1:n_reps, function(x) {devtools::load_all(); suppressMessages(
     cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, 
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
     age = age, type = type, n_folds = n_folds,
     seed = seed + x, verbose = verbose, reg_baseline = reg_baseline,
     reg_long = reg_long))
     }, cl = cl)
+  stopCluster(cl)
   AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
   for(i in 1:length(out)){
     AUC_meas[,i] <- out[[i]]$AUC_pred
   }
   AUC <- rowMeans(AUC_meas)
   names(AUC) <- times_pred
-  AUC
+  final <- list(AUC_pred = AUC)
+  class(final) = "rcv_mfpccox"
+  final
 }
+
+
+
+
+
+
 
 
 

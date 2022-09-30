@@ -13,9 +13,12 @@ cv_mfpccox(
   M = 50,
   uniExpansions = NULL,
   age = NULL,
-  type = c("scores", "AUC", "pp"),
+  type = c("scores", "AUC", "pp", "uscores"),
   n_folds = 10,
-  seed = 1041996
+  seed = 1041996,
+  verbose = FALSE,
+  reg_baseline = FALSE,
+  reg_long = TRUE
 )
 }
 \arguments{

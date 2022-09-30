@@ -4,7 +4,13 @@
 \alias{predict_surv}
 \title{Predict survival probabilities for new patients (step 3)}
 \usage{
-predict_surv(step2, times_pred = step2$landmark_time, AUC_train = FALSE)
+predict_surv(
+  step2,
+  times_pred = step2$landmark_time,
+  AUC_train = FALSE,
+  reg_baseline = FALSE,
+  reg_long = TRUE
+)
 }
 \arguments{
 \item{step2}{output of get_mscores}
