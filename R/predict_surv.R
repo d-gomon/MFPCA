@@ -149,7 +149,9 @@ predict_surv <- function(step2, times_pred = step2$landmark_time,
               AUC_train = AUC_train,
               #Brier_pred = brier_pred,
               landmark_time = landmark_time,
-              lp_pred = lp_pred))
+              lp_pred = lp_pred,
+              M = M,
+              PVE = mPVE))
 }
 
 

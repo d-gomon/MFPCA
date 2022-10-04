@@ -87,13 +87,14 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
   Brier <- colMeans(Brier_temp, na.rm = TRUE)
   names(Brier) <- times_pred
   return(list(AUC_pred = AUC,
-              Brier_pred = Brier))
+              Brier_pred = Brier,
+              landmark_time = step3$landmark_time))
 }
 
 
 rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
                        times_pred = NULL, M = 50, uniExpansions = NULL, 
-                       age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 5, 
+                       age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 10, 
                        n_folds = 10, seed = 01041996, displaypb = FALSE, 
                        n_cores = 1, verbose = FALSE,
                        reg_baseline = FALSE, reg_long = TRUE){
@@ -102,7 +103,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     #Create a cluster for parallel computing and error check
     real_cores <- detectCores()
     if(n_cores > real_cores){
-      warning(paste0("More cores requested (", ncores ,") than detected (", real_cores,") by R. \n Proceed at own risk."))
+      warning(paste0("More cores requested (", n_cores ,") than detected (", real_cores,") by R. \n Proceed at own risk."))
     }
     cl <- makeCluster(n_cores)
     clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
@@ -118,7 +119,9 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     pboptions(type = "none")
   }
   set.seed(seed)
-  out <- pblapply(1:n_reps, function(x) {devtools::load_all(); suppressMessages(
+  out <- pblapply(1:n_reps, function(x) {
+    devtools::load_all() 
+    suppressMessages(
     cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, 
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
     age = age, type = type, n_folds = n_folds,

@@ -11,6 +11,6 @@ Can plot output of cv and rcv
 }
 \section{Functions}{
 \itemize{
-\item \code{plot.rcv_mfpccox}: Plot a CGR-CUSUM
-}}
+\item \code{plot.rcv_mfpccox()}: Plot a CGR-CUSUM
 
+}}

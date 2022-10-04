@@ -36,6 +36,8 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
   if(length(type) > 1){
     type <- "scores"
   }
+  M_orig <- M
+  M <- 1e10
   
   #Fit MFPCA on Training data
   if(inherits(mFData_train, "multiFunData")){
@@ -46,12 +48,17 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
     if(type != "scores"){
       MFPCAfit <- MFPCA(mFData_train, M = M, uniExpansions = uniExpansions, verbose = verbose,
                         age.bl = age_train, fit = TRUE)
+      M_max <- ncol(MFPCAfit$vectors)
+      MFPCAfit_orig <- list(meanFunction = MFPCAfit$meanFunction, functions = MFPCAfit$functions[1:min(M_orig, M_max),],
+                            values = MFPCAfit$values[1:min(M_orig, M_max)])
+      class(MFPCAfit_orig) <- "MFPCAfit"
     } else{
       MFPCAfit <- MFPCA(mFData_train, M = M, uniExpansions = uniExpansions, verbose = verbose,
-                        age.bl = age_train)  
+                        age.bl = age_train)
     }
     uniExpansions <- MFPCAfit$uniExpansions
   } 
+  mPVE <- 100*sum(MFPCAfit$values[1:M_orig], na.rm = TRUE)/sum(MFPCAfit$values)
   
   #Use fitted MFPCA on training data to predict scores for prediction data.
   if(!is.null(mFData_pred)){
@@ -73,32 +80,34 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
     mscores <- allScores %*% c
     #normalization factor
     mscores <- as.matrix(mscores %*% diag(sqrt(MFPCAfit$values) * MFPCAfit$normFactors, nrow = M, ncol = M)) # normalization
+    mscores <- mscores[, 1:min(M_orig, M)]
     namesList <- lapply(mFData_pred, names)
     rownames(mscores) <- namesList[[1]]
   } else{
     mscores = NULL
   }
+  M_real <- min(M_orig, M)
   
   
   #Finish later
   if(type == "scores"){
     #Construct the predictors for Step 3 of our method.
-    long_sum_train <- MFPCAfit$scores
+    long_sum_train <- MFPCAfit$scores[, 1:M_real]
     long_sum_pred <- mscores
   } else if(type == "AUC"){
     #We need to calculate area under the curve.
     #MFPCAfit will have the truncated Karhuhen Loeve in MFPCAfit$fit for training data
     #Calculate it for test data as well, using predict.MFPCAfit
-    trunc_KL_pred <- predict(MFPCAfit, scores = mscores)
-    trunc_KL_train <- MFPCAfit$fit
+    trunc_KL_pred <- predict(MFPCAfit_orig, scores = mscores)
+    trunc_KL_train <- predict(MFPCAfit_orig, scores = MFPCAfit$scores[, 1:M_real])
     
     #Integrate to get AUC
     long_sum_train <- sapply(trunc_KL_train, integrate)
     long_sum_pred <- sapply(trunc_KL_pred, integrate)
     
   } else if(type == "pp"){
-    trunc_KL_pred <- predict(MFPCAfit, scores = mscores)
-    trunc_KL_train <- MFPCAfit$fit
+    trunc_KL_pred <- predict(MFPCAfit_orig, scores = mscores)
+    trunc_KL_train <- predict(MFPCAfit_orig, scores = MFPCAfit$scores[, 1:M_real])
     
     fObs_pred <- subset(trunc_KL_pred, 
                         argvals = list(tail(trunc_KL_pred[[1]]@argvals[[1]], 1)))
@@ -133,6 +142,8 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
               scores_train = MFPCAfit$scores,
               scores_pred = mscores,
               MFPCAfit = MFPCAfit,
+              M = M,
+              mPVE = mPVE,
               step1 = step1))
 }
 
