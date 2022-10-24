@@ -5,7 +5,7 @@
 \title{Landmark data (step 1)}
 \usage{
 landmark_data(
-  time = 0,
+  time = NULL,
   mFData_train,
   X_baseline_train,
   Y_surv_train,
@@ -17,7 +17,7 @@ landmark_data(
 )
 }
 \arguments{
-\item{time}{Landmark time. Default = 0 (no landmarking).}
+\item{time}{Landmark time. Default = NULL (no landmarking).}
 
 \item{mFData_train}{Training data in multiFunData format.}
 

@@ -53,11 +53,11 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     #Combine Training and prediction data in a list to feed to get_mscores
     step1 <- list(time = landmark_time, 
                   mFData_train = mFData[-testIndexes,],
-                  X_baseline_train = X_baseline[-testIndexes,], 
+                  X_baseline_train = X_baseline[-testIndexes, , drop = FALSE], 
                   Y_surv_train = Y_surv[-testIndexes,], 
                   age_train = age[-testIndexes], 
                   mFData_pred = mFData[testIndexes,], 
-                  X_baseline_pred = X_baseline[testIndexes,], 
+                  X_baseline_pred = X_baseline[testIndexes, , drop = FALSE], 
                   Y_surv_pred = Y_surv[testIndexes,], 
                   age_pred = age[testIndexes])
     
@@ -79,7 +79,7 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     
     #Calculate AUC for current fold
     AUC_temp[i, ] <- step3$AUC_pred
-    #Brier_temp[i, ] <- step3$Brier_pred
+    Brier_temp[i, ] <- step3$Brier_pred
   }
   #Average AUC over folds:
   AUC <- colMeans(AUC_temp, na.rm = TRUE)
@@ -119,8 +119,8 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     pboptions(type = "none")
   }
   set.seed(seed)
-  out <- pblapply(1:n_reps, function(x) {
-    devtools::load_all() 
+  out <- pblapply(1:n_reps, function(x){
+    devtools::load_all()
     suppressMessages(
     cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, 
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
@@ -130,12 +130,17 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     }, cl = cl)
   stopCluster(cl)
   AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
+  Brier_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
   for(i in 1:length(out)){
     AUC_meas[,i] <- out[[i]]$AUC_pred
+    Brier_meas[,i] <- out[[i]]$Brier_pred
   }
   AUC <- rowMeans(AUC_meas)
   names(AUC) <- times_pred
-  final <- list(AUC_pred = AUC)
+  Brier <- rowMeans(Brier_meas)
+  names(Brier) <- times_pred
+  final <- list(AUC_pred = AUC,
+                Brier_pred = Brier)
   class(final) = "rcv_mfpccox"
   final
 }

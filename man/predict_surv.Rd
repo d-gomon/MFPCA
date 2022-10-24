@@ -7,7 +7,7 @@
 predict_surv(
   step2,
   times_pred = step2$landmark_time,
-  AUC_train = FALSE,
+  accuracy_train = FALSE,
   reg_baseline = FALSE,
   reg_long = TRUE
 )
@@ -17,7 +17,11 @@ predict_surv(
 
 \item{times_pred}{Times at which prediction is required. Default = landmark_time (useless).}
 
-\item{AUC_train}{Should AUC for training data be determined?}
+\item{accuracy_train}{Should accuracy measures (AUC/Brier score) be calculated on the training set?}
+
+\item{reg_baseline}{Should baseline covariates be regularized?}
+
+\item{reg_long}{Should longitudinal covariates be regularized?}
 }
 \description{
 Predict survival for prediction data

@@ -6,11 +6,18 @@
 \usage{
 plot.rcv_mfpccox(x, ...)
 }
+\arguments{
+\item{x}{A list containing "rcv_mfpccox" objects}
+
+\item{legend}{A list of length(x) containing a description of each object in x.}
+
+\item{col}{A vector of length(x) specifying which color to use for each object in x.}
+}
 \description{
 Can plot output of cv and rcv
 }
 \section{Functions}{
 \itemize{
-\item \code{plot.rcv_mfpccox()}: Plot a CGR-CUSUM
-
+\item \code{plot.rcv_mfpccox}: Plot a CGR-CUSUM
 }}
+

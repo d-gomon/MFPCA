@@ -127,11 +127,11 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
   }
   
   #Add the summaries to the baseline covariates
-  X_train <- cbind(long_sum_train, X_baseline_train)
-  X_train <- model.matrix(~.-1, X_train)
+  traindat <- as.data.frame(cbind(long_sum_train, X_baseline_train))
+  X_train <- model.matrix(~.-1, traindat)
   
-  X_pred <- cbind(long_sum_pred, X_baseline_pred)
-  X_pred <- model.matrix(~.-1, X_pred)
+  preddat <- as.data.frame(cbind(long_sum_pred, X_baseline_pred))
+  X_pred <- model.matrix(~.-1, preddat)
 
   
   return(list(X_train = X_train,
@@ -142,9 +142,11 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
               scores_train = MFPCAfit$scores,
               scores_pred = mscores,
               MFPCAfit = MFPCAfit,
-              M = M,
+              M = M_real,
               mPVE = mPVE,
-              step1 = step1))
+              step1 = step1,
+              traindat = traindat,
+              preddat = preddat))
 }
 
 predict_mscores <- function(mFData_train, mFData_pred = NULL, 
