@@ -192,7 +192,7 @@
     }
   }
   if(!is.null(age.bl)){
-    mu <- funData(argvals = sort(unique(d.vec_adj)), X = matrix(mu, nrow = 1))
+    mu <- funData(argvals = sort(unique(d.vec_adj)) + min(age.bl), X = matrix(mu, nrow = 1))
     #mu <- mu_mat
   }
   ret.objects = c("fit", "scores", "mu", "efunctions", "evalues",
@@ -214,39 +214,6 @@
 
 
 
-#' @export
-#' @keywords internal
-de_mean <- function(X, Y, age.bl = NULL, nbasis){
-  D = NCOL(Y)
-  if(D != length(X)) # check if number of observation points in X & Y are identical
-    stop("different number of (potential) observation points differs in X and Y!")
-  I = NROW(Y)
-  if(is.null(age.bl)){
-    #I.pred = NROW(Y.pred)
-    d.vec = rep(X, each = I) # use given X-values for estimation of mu
-    gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec, k = nbasis_mu))
-    #length(mu) = length(X), because the range of values is equal everywhere.
-    mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec = X))
-    mu_mat <- t(as.matrix(mu))
-    Y.tilde = Y - matrix(mu, I, D, byrow = TRUE)
-  } else{
-    #I.pred = NROW(Y.pred)
-    #CREATE NEW d.vec_adj, which represents age at baseline. Basically, substract age at baseline for each subject from X
-    #age.bl must be vector containing age in same time unit as funData object!!!
-    age.bl_order <- age.bl - min(age.bl)
-    #We create an adjusted vector, where each patient has individual starting times.
-    d.vec_adj <- rep(X, each = I) + age.bl_order
-    d.vec = rep(X, each = I) # use given X-values for estimation of mu
-    gam0 = mgcv::gam(as.vector(Y) ~ s(d.vec_adj, k = nbasis_mu))
-    #mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = d.vec_adj))
-    mu = mgcv::predict.gam(gam0, newdata = data.frame(d.vec_adj = sort(unique(d.vec_adj))))
-    mu_mat <- matrix(mu[match(d.vec_adj, sort(unique(d.vec_adj)))], I, D, byrow = TRUE)
-    Y.tilde = Y - mu_mat
-  }
-  return(list(gam0 = gam0,
-              mu_mat = mu_mat,
-              Y.tilde = Y.tilde))
-}
 
 
 

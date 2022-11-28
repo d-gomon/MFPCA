@@ -4,7 +4,16 @@
 \alias{simMultiFunDatav2}
 \title{Simulate multivariate functional datav2}
 \usage{
-simMultiFunDatav2(type, argvals, M, eFunType, ignoreDeg = NULL, eValType, N)
+simMultiFunDatav2(
+  type,
+  argvals,
+  M,
+  eFunType,
+  ignoreDeg = NULL,
+  eValType,
+  N,
+  custom_values
+)
 }
 \arguments{
 \item{type}{A character string, specifying the construction method for the 

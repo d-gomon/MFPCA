@@ -8,81 +8,109 @@
 #' @param accuracy_train Should accuracy measures (AUC/Brier score) be calculated on the training set?
 #' @param reg_baseline Should baseline covariates be regularized?
 #' @param reg_long Should longitudinal covariates be regularized?
+#' @param alpha Regularization scaling. Alpha = 1 (lasso), alpha = 0 (ridge), between 0 and 1 = elastic net. Default = 1 (lasso)
+#' @param IPCW_vars Character vector indicating which variables to use for IPCW. Uses all baseline variables by default.
 #' 
 #' @importFrom pec cindex
 #' @importFrom survival coxph
 #' @importFrom survival Surv
+#' @importFrom survival coxph.control
 #' @import prodlim
 #' @import riskRegression
+#' @importFrom success extract_hazard
 #' 
 #' 
 
 
-predict_surv <- function(step2, times_pred = step2$landmark_time, 
-                         accuracy_train = FALSE, reg_baseline = FALSE, reg_long = TRUE){
-  #step2 contains the variables:
-  #type = c("scores", "AUC", "pp", "uscores"), M = NULL, 
-  #uniExpansions = NULL, verbose = FALSE
-  
-  #step2 also contains step1, which includes the variables:
-  #time = NULL, mFData_train, X_baseline_train, Y_surv_train, age_train = NULL, 
-  #mFData_pred = NULL, X_baseline_pred = NULL, Y_surv_pred = NULL, age_pred = NULL
-  
+predict_surv <- function(step2, times_pred, 
+                         reg_baseline = FALSE, 
+                         reg_long = TRUE, alpha = 1, accuracy_train = NULL, IPCW_vars = NULL){
+
+  #Read step2 into active environment
   if(!missing(step2)){
     list2env(step2, envir = environment())
   }
+  #step2 contains the variables:
+  #type = c("scores", "AUC", "pp", "uscores"), M = NULL, 
+  #uniExpansions = NULL, verbose = FALSE
+  #step2 also contains step1, which includes the variables:
+  #time, mFData_train, X_baseline_train, Y_surv_train, age_train, 
+  #mFData_pred, X_baseline_pred, Y_surv_pred, age_pred
 
-
-  
-  p_baseline <- ncol(step1$X_baseline_train)
-  p_long <- ncol(X_train) - p_baseline
+  #Create vector to feed to cv.glmnet determining which variables to regularize
   if(isTRUE(reg_baseline)){
-    reg_base <- rep(1, p_baseline)
+    reg_base <- rep(1, p_base)
   } else{
-    reg_base <- rep(0, p_baseline)
+    reg_base <- rep(0, p_base)
   }
   if(isTRUE(reg_long)){
     reg_lon <- rep(1, p_long)
   } else{
     reg_lon <- rep(0, p_long)
   }
-  
-
-
-  #First we fit a cox model on the training data. 
-  #Use CV in glmnet to determine optimal lambda parameter on train data
-  #and fit the regularized cox model on training data
   if(isFALSE(reg_baseline) & isFALSE(reg_long)){
-    #cv_fit_train <- list(lambda.min = 0)
-    reg_lon <- rep(1, p_long)
+    reg_base <- rep(0, p_base)
+    reg_lon <- rep(0, p_long)
   } 
-  cv_fit_train <- cv.glmnet(x = X_train, y = Y_train,
-                            family = "cox", type.measure = "C",
-                            penalty.factor = c(reg_lon, reg_base))
+  
   if(isFALSE(reg_baseline) & isFALSE(reg_long)){
-    s_opt <- 0
-  } else{
-    s_opt <- cv_fit_train$lambda.min
+    #If we don't want to perform regularization we cannot use glmnet to fit the model
+    #Setting lambda to 0 for some reason doesn't work in glmnet 
+    featureNames_cox <- paste(colnames(step2$traindat), collapse = " + ")
+    survival_from_glm <- coxph(as.formula(paste0("Surv(time, status) ~", featureNames_cox)), data = cbind(step2$Y_train, step2$traindat), x = TRUE, y = TRUE)
+    
+    #We predict the linear predictor using the fitted cox model for both training and test data.
+    lp_train <- predict(survival_from_glm, type = "lp")
+    lp_pred <- predict(survival_from_glm, newdata = step2$preddat, type = "lp")
+    cv_fit_train <- survival_from_glm
+    
+  }else{
+    #Then we fit a cox model on the training data. 
+    #Use CV in glmnet to determine optimal lambda parameter on train data
+    #and fit the regularized cox model on training data
+    cv_fit_train <- cv.glmnet(x = X_train, y = Y_train,
+                              family = "cox", type.measure = "deviance", alpha = alpha,
+                              penalty.factor = c(reg_lon, reg_base))
+    s_opt <- "lambda.min"
+    
+    #We predict the linear predictor using the fitted cox model for both training and test data.
+    lp_train <- predict(cv_fit_train, newx = step2$X_train, type = "link", s = s_opt)
+    lp_pred <- predict(cv_fit_train, newx = step2$X_pred, type = "link", s = s_opt)
+    
+    
+    #Transfer glm model to survival model for use in riskRegression::Score()
+    #We do this because coxph has a predictRisk method. ?predictRisk.coxph
+    #Giving the (regularized) linear predictor to coxph() allows to use basehaz()
+    #to extract the (cumulative) baseline hazard from fitted regularized model
+    df.orig <- as.data.frame(cbind(Y_train, lp_train))
+    colnames(df.orig)[3] <- "linpred"
+    survival_from_glm <- coxph(Surv(time = time, event = status) ~ linpred,         
+                               data = df.orig, init = 1, 
+                               control = coxph.control(iter.max = 0), x = TRUE, 
+                               y = TRUE)
   }
+
+  
+
   
   
-  lp_train <- predict(cv_fit_train, newx = X_train, type = "link", s = s_opt)
-  lp_pred <- predict(cv_fit_train, newx = X_pred, type = "link", s = s_opt)
   
+  #DOESNT REALLY DO ANYTHING YET. FUTURE?
   if(is.null(landmark_time)){
     landmark_time <- argvals(step1$mFData_pred)[[1]][[1]][1]
   }
-
-  #Use the hazard to output predicted survival probabilities. 
-  #But use the linear predictor to evaluate AUC - less smoothing so more accurate.
-  haz <- hdnom::glmnet_basesurv(time = Y_train[, "time"], event = Y_train[, "status"], 
-                                lp = lp_train,
-                                times.eval = c(landmark_time, times_pred), 
-                                centered = FALSE)
+  
+  
+  #We use the following formula to predict survival:
+  #S(s'|s) = (S_0(s')/S_0(s))^(exp(linpred))
+  #See Li/Luo (2019) Dynamic prediction of Alzheimer
+  
+  #Use the hazard to output predicted survival probabilities.
+  haz <- success::extract_hazard(survival_from_glm)
   #Determine baseline survival probability at landmark time:
-  base_land_surv <- exp(-haz$cumulative_base_hazard[which(haz$times == landmark_time)])
+  base_land_surv <- exp(-haz$cbaseh(landmark_time))
   #Determine baseline survival probability at each time
-  surv_fit <- exp(-haz$cumulative_base_hazard)
+  surv_fit <- exp(-haz$cbaseh(sort(c(landmark_time, times_pred))))
   #Baseline survival ratio S_0(time)/S_0(landmark_time)
   surv_ratio <- surv_fit/base_land_surv
   #Now exponentiate each term with exp(lp) to obtain prediction
@@ -90,23 +118,17 @@ predict_surv <- function(step2, times_pred = step2$landmark_time,
                       ncol = length(surv_ratio), byrow = TRUE)
   prob_surv_train <- matrix(surv_ratio^(rep(exp(lp_train), each = length(surv_ratio))), 
                             ncol = length(surv_ratio), byrow = TRUE)
+  #Give names to rows and columns
   colnames(prob_surv_pred) <- c(landmark_time, times_pred)
   rownames(prob_surv_pred) <- rownames(X_pred)
   colnames(prob_surv_train) <- c(landmark_time, times_pred)
   rownames(prob_surv_train) <- rownames(X_train)
   
+  
   #Evaluate AUC for training data.
   if(isTRUE(accuracy_train)){
-    AUC_train <- sapply(times_pred, function(t) survivalROC::survivalROC(
-      Stime = Y_train[, "time"], # Event time or censoring time for subjects
-      status = Y_train[, "status"], # Indicator of status, 1 if death or event, 0 otherwise
-      marker = lp_train, # Predictor or marker value
-      entry = NULL, # Entry time for the subjects, default is NULL
-      predict.time = t, # Time point of the ROC curve
-      cut.values = NULL, # marker values to use as a cut-off for calculation of sensitivity and specificity
-      method = "NNE", 
-      span = 0.25 * nrow(Y_train)^(-0.2) # small span yield moderate smoothing, how to select?
-    )$AUC)
+    #Not implemented yet. FUTURE? Rewrite riskRegression::Score but validate using training data.
+    #Not very interesting probably.
   } else{
     AUC_train = NULL
     Brier_train = NULL
@@ -116,14 +138,29 @@ predict_surv <- function(step2, times_pred = step2$landmark_time,
   #Evaluate AUC here for prediction data if Y_pred specified. Otherwise, don't. Just don't.
   if(!is.null(Y_pred)){
     
-    traindat <- cbind(step2$Y_train, step2$traindat)
-    preddat <- cbind(step2$Y_pred, step2$preddat)
-    cox_train_mod <- coxph(Surv(time, status) ~ ., data = traindat, x = TRUE, y = TRUE)
+    if(isFALSE(reg_baseline) & isFALSE(reg_long)){
+      #if we didn't regularize
+      preddat <- cbind(step2$Y_pred, step2$preddat)
+    } else{
+      #If we regularized
+      #We need to have a data.frame with outcome, linpred (from glmnet) and baseline covariates (for IPCW)
+      preddat <- as.data.frame(cbind(step2$Y_pred, lp_pred, step1$X_baseline_pred))
+      colnames(preddat)[3] <- "linpred"
+    }
+    if(is.null(IPCW_vars)){
+      featureNames <- paste(colnames(step1$X_baseline_pred), collapse = " + ")  
+    } else{
+      if(!is.character(IPCW_vars)){
+        stop("Please specify IPCW_vars as character vector of variable names.")
+      }
+      featureNames <- paste(IPCW_vars, collapse = " + ")
+    }
     
+    
+    #See explanation about Brier score calculation:
     #https://www.jesseislam.com/post/brier-score/
-    featureNames <- paste(colnames(step1$X_baseline_pred), collapse = " + ")
-    Brier_temp <- suppressMessages(riskRegression::Score(object = list("Cox1" = cox_train_mod),
-                                        #formula = cox_train_mod$formula,
+    
+    Brier_temp <- tryCatch({suppressMessages(riskRegression::Score(object = list("Cox1" = survival_from_glm),
                           formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
                           data = preddat,
                           exact = FALSE, # Do not predict at event times
@@ -132,12 +169,30 @@ predict_surv <- function(step2, times_pred = step2$landmark_time,
                           cens.model = "cox", # Method for estimating inverse probability of censoring weights:
                           splitMethod = "none",
                           B = 0,
-                          verbose = TRUE))
-    Brier_pred <- subset(Brier_temp$Brier$score, model == "Cox1")$Brier
-    names(Brier_pred) <- subset(Brier_temp$Brier$score, model == "Cox1")$times
-    
-    AUC_pred <- Brier_temp$AUC$score$AUC
-    names(AUC_pred) <- Brier_temp$AUC$score$times
+                          verbose = FALSE))},
+                          warning = function(cond){
+                            message("Warning from Score() function")
+                          },
+                          error = function(cond){
+                            message("Something went wrong in the riskRegression:Score() function.")
+                            message("Throwing away results from this iteration.")
+                            return(NULL)
+                          })
+    if(!is.null(Brier_temp)){
+      #Extract Brier score from Brier_temp
+      Brier_pred <- subset(Brier_temp$Brier$score, model == "Cox1")$Brier
+      Brier_pred <- c(Brier_pred, rep(NA, length(times_pred) - length(Brier_pred)))
+      names(Brier_pred) <- times_pred
+      #Extract AUC from Brier_temp
+      AUC_pred <- Brier_temp$AUC$score$AUC
+      AUC_pred <- c(AUC_pred, rep(NA, length(times_pred) - length(AUC_pred)))
+      names(AUC_pred) <- times_pred
+    } else{
+      Brier_pred <- rep(NA, length(times_pred))
+      names(Brier_pred) <- times_pred
+      AUC_pred <- rep(NA, length(times_pred))
+      names(AUC_pred) <- times_pred
+    }
   }
   
   out <- list(prob_surv_pred = prob_surv_pred,
@@ -155,55 +210,6 @@ predict_surv <- function(step2, times_pred = step2$landmark_time,
   return(out)
   
 }
-
-
-
-# Decided to no longer calculate C-index.
-# if(isTRUE(C_pred)){
-#   #C_pred_glmnet does not use IPCW, but you can make it use the IPCW by manually specifying weights in Cindex
-#   C_pred_glmnet <- sapply(times_pred,
-#                           function(x) glmnet::Cindex(lp_pred, y = Surv(Y_pred[, "time"], ifelse(Y_pred[, "time"] <= x & Y_pred[, "status"] == 1, 1, 0))))
-#   names(C_pred_glmnet) <- times_pred
-#   
-#   #C_pred uses IPCW, but does not use shrunk coefficients. 
-#   C_pred <- suppressWarnings(pec::cindex(list("Cox1" = cox_train_mod),
-#                                          formula = Surv(time, status) ~ .,
-#                                          data = preddat,
-#                                          eval.times = times_pred)$AppCindex$Cox1)
-#   names(C_pred) <- times_pred
-# }
-
-# Used to calculate AUC with survivalROC
-# #Check if there are any survivals past the landmark time
-# event.times <- Y_pred[Y_pred[, "status"] == 1, "time"]
-# if(isTRUE(AUC_pred)){
-#   AUC_pred <- sapply(times_pred, function(t){
-#     if (all(!(event.times <= t))) {
-#       mess <- paste(
-#         "No event (surv.new$event == 1) is observed between landmark time", landmark_time, 
-#         "and prediction time", t)
-#       warning(mess)
-#       # Store no result
-#       return(NA)
-#     } else{
-#       survivalROC::survivalROC(
-#         Stime = Y_pred[, "time"], # Event time or censoring time for subjects
-#         status = Y_pred[, "status"], # Indicator of status, 1 if death or event, 0 otherwise
-#         marker = lp_pred, # Predictor or marker value
-#         entry = NULL, # Entry time for the subjects, default is NULL
-#         predict.time = t, # Time point of the ROC curve
-#         cut.values = NULL, # marker values to use as a cut-off for calculation of sensitivity and specificity
-#         method = "NNE", 
-#         span = 0.25 * nrow(Y_pred)^(-0.2) # small span yield moderate smoothing, how to select?
-#       )$AUC
-#     }
-#   })
-#   names(AUC_pred) <- times_pred
-# } else{
-#   AUC_pred <- NULL
-# }
-
-
 
 
 

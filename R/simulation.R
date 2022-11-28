@@ -144,7 +144,7 @@
 #' plot(weighted$simData, main = "Weighted: Simulated Data (2nd observation)", obs = 2)
 #' 
 #' par(oldPar)
-simMultiFunDatav2 <- function(type, argvals, M, eFunType, ignoreDeg = NULL, eValType, N)
+simMultiFunDatav2 <- function(type, argvals, M, eFunType, ignoreDeg = NULL, eValType, N, custom_values)
 {
   if(! all(is.character(type), length(type) == 1))
     stop("Parameter 'type' must be passed as a string.")
@@ -181,8 +181,8 @@ simMultiFunDatav2 <- function(type, argvals, M, eFunType, ignoreDeg = NULL, eVal
   p <- length(trueFuns)
   
   # generate eigenvalues and scores
-  trueVals <- eVal(Mtotal, eValType)
-  scores <- t(replicate(N, stats::rnorm(Mtotal, sd = sqrt(eVal(Mtotal, eValType)))))
+  trueVals <- eValv2(Mtotal, eValType , custom_values)
+  scores <- t(replicate(N, stats::rnorm(Mtotal, sd = sqrt(trueVals))))
   
   # generate individual observations
   simData  <- vector("list", p)
@@ -295,4 +295,46 @@ simMultiWeightv2 <- function(argvals, M, eFunType, ignoreDeg = NULL, eValType, N
   }
   
   return(multiFunData(basis))
+}
+
+
+#' Generate a sequence of simulated eigenvalues
+#' 
+#' This function generates \eqn{M} decreasing eigenvalues.
+#' 
+#' The function implements three types of eigenvalues: \itemize{\item 
+#' \code{"linear":} The eigenvalues start at  \eqn{1} and decrease linearly 
+#' towards \eqn{0}: \deqn{\nu_m = \frac{M+1-m}{m}.}{\nu_m = (M+1-m)/m.} \item
+#' \code{"exponential":} The eigenvalues start at \eqn{1}  and decrease
+#' exponentially towards \eqn{0}: \deqn{\nu_m =
+#' \exp\left(-\frac{m-1}{2}\right).}{\nu_m = exp(-(m-1)/2).}\item
+#' \code{"wiener":} The eigenvalues correspond to the eigenvalues of the Wiener
+#' process: \deqn{\nu_m = \frac{1}{(\pi/2 \cdot (2m-1))^2}.}{\nu_m = (pi/2 *
+#' (2m-1))^(-2)} }
+#' 
+#' @param M An integer, the number of eigenvalues to be generated.
+#' @param type A character string specifying the type of eigenvalues that should
+#'   be calculated. See Details.
+#'   
+#' @return A vector containing the \code{M} decreasing eigenvalues.
+#'   
+#' @importFrom graphics points
+#' 
+#' @keywords internal
+
+eValv2 <- function(M, type, custom_values)
+{
+  if(! all(is.numeric(M), length(M) == 1, M > 0))
+    stop("Parameter 'M' must be passed as a positive number.") 
+  
+  if(! all(is.character(type), length(type) == 1))
+    stop("Parameter 'type' must be passed as a string.")
+  
+  ret <- switch(type,
+                linear = ((M+1) - (seq_len(M))) / M,
+                exponential = exp(-((seq_len(M)-1) / 2)),
+                wiener = 1/(pi/2 * (2 * (seq_len(M)) - 1))^2,
+                custom = custom_values,
+                stop("Choose either linear, exponential or wiener"))
+  return(ret)
 }

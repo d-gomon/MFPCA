@@ -22,9 +22,9 @@
 
 cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
                        times_pred = NULL, M = 50, uniExpansions = NULL, 
-                       age = NULL, type = c("scores", "AUC", "pp", "uscores"), 
+                       age = NULL, AgeDM = FALSE, type = c("scores", "AUC", "pp", "uscores"), 
                        n_folds = 10, seed = 01041996, verbose = FALSE,
-                       reg_baseline = FALSE, reg_long = TRUE){
+                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = NULL){
   set.seed(seed)
   
   #First we landmark the data
@@ -61,21 +61,43 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
                   Y_surv_pred = Y_surv[testIndexes,], 
                   age_pred = age[testIndexes])
     
+    
+    #Here something like: if Correct_LM = FALSE
+    #asd <- landmark_data(step1$mFData_pred, age_pred, Y_surv_pred)
+    #step1$mFData_pred <- asd$..., step1$Y_surv_pred <- asd$.... etc.
+    #To remove information for test patients after landmark time, and also of patients that had failure before landmark time.
+    
     if(!is.null(age)){
-      for(j in 1:length(uniExpansions)){
-        uniExpansions[[j]]$age.bl <- step1$age_train
+      if(isFALSE(AgeDM)){
+        for(j in 1:length(uniExpansions)){
+          uniExpansions[[j]]$age.bl <- step1$age_train
+        }
       }
     }
+    
+    if(isTRUE(AgeDM)){
+      if(is.null(age)){
+        stop("Please provide age for de-meaning step.")
+      }
+      message("Step 1.5/3")
+      DeMean_temp <- DeMean_Var(mFData = step1$mFData_train, var = step1$age_train)
+      step1$mFData_train <- DeMean_temp$mFData
+      step1$mFData_pred <- DeMean_test(step1$mFData_pred, var = step1$age_pred, meanFuns = DeMean_temp$meanFuns)$mFData
+    }
+    
     message("Step 2/3")
     #Perform Step 2 of procedure. 
     step2 <- get_mscores(step1 = step1, M = M, 
                          uniExpansions = uniExpansions,
                          type = type, verbose = verbose)
-
+    
+  
     
     message("Step 3/3")
     step3 <- predict_surv(step2 = step2, times_pred = times_pred, 
-                          reg_baseline = reg_baseline, reg_long = reg_long)
+                          reg_baseline = reg_baseline, reg_long = reg_long, IPCW_vars = IPCW_vars)
+    
+    
     
     #Calculate AUC for current fold
     AUC_temp[i, ] <- step3$AUC_pred
@@ -93,11 +115,11 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
 
 
 rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
-                       times_pred = NULL, M = 50, uniExpansions = NULL, 
+                       times_pred = NULL, M = 50, uniExpansions = NULL, AgeDM = FALSE,
                        age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 10, 
                        n_folds = 10, seed = 01041996, displaypb = FALSE, 
                        n_cores = 1, verbose = FALSE,
-                       reg_baseline = FALSE, reg_long = TRUE){
+                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = NULL){
   
   if(n_cores > 1){
     #Create a cluster for parallel computing and error check
@@ -107,8 +129,8 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
     }
     cl <- makeCluster(n_cores)
     clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
-                        "M", "uniExpansions", "age", "type", "n_folds", "seed",
-                        "verbose", "reg_baseline", "reg_long"),
+                        "M", "uniExpansions", "age", "AgeDM", "type", "n_folds", "seed",
+                        "verbose", "reg_baseline", "reg_long", "predict_surv", "IPCW_vars"),
                   envir=environment())
   } else{
     cl <- NULL
@@ -121,14 +143,17 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
   set.seed(seed)
   out <- pblapply(1:n_reps, function(x){
     devtools::load_all()
-    suppressMessages(
+    #suppressMessages(
     cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, 
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
-    age = age, type = type, n_folds = n_folds,
+    age = age, AgeDM = AgeDM, type = type, n_folds = n_folds,
     seed = seed + x, verbose = verbose, reg_baseline = reg_baseline,
-    reg_long = reg_long))
+    reg_long = reg_long, IPCW_vars = IPCW_vars)
+    #)
     }, cl = cl)
-  stopCluster(cl)
+  if(!is.null(cl)){
+    stopCluster(cl)  
+  }
   AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
   Brier_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
   for(i in 1:length(out)){

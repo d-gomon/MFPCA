@@ -6,10 +6,12 @@
 \usage{
 predict_surv(
   step2,
-  times_pred = step2$landmark_time,
-  accuracy_train = FALSE,
+  times_pred,
   reg_baseline = FALSE,
-  reg_long = TRUE
+  reg_long = TRUE,
+  alpha = 1,
+  accuracy_train = NULL,
+  IPCW_vars = NULL
 )
 }
 \arguments{
@@ -17,11 +19,15 @@ predict_surv(
 
 \item{times_pred}{Times at which prediction is required. Default = landmark_time (useless).}
 
-\item{accuracy_train}{Should accuracy measures (AUC/Brier score) be calculated on the training set?}
-
 \item{reg_baseline}{Should baseline covariates be regularized?}
 
 \item{reg_long}{Should longitudinal covariates be regularized?}
+
+\item{alpha}{Regularization scaling. Alpha = 1 (lasso), alpha = 0 (ridge), between 0 and 1 = elastic net. Default = 1 (lasso)}
+
+\item{accuracy_train}{Should accuracy measures (AUC/Brier score) be calculated on the training set?}
+
+\item{IPCW_vars}{Character vector indicating which variables to use for IPCW. Uses all baseline variables by default.}
 }
 \description{
 Predict survival for prediction data
