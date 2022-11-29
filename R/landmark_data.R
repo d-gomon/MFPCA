@@ -15,6 +15,13 @@
 #' @param Y_surv_pred Survival information (time, event) for prediction data. Can be left empty,
 #' in that case predictions will be made for the whole test data.
 #' @param age_pred (optional) Numeric vector of ages at baseline for prediction data.
+#' 
+#' 
+#' 
+#' @export
+#' 
+#' @keywords internal
+#' 
 
 landmark_data <- function(time = NULL, mFData_train, X_baseline_train, Y_surv_train, age_train = NULL, mFData_pred = NULL, 
                           X_baseline_pred = NULL, Y_surv_pred = NULL, age_pred = NULL){
@@ -90,13 +97,25 @@ landmark_data <- function(time = NULL, mFData_train, X_baseline_train, Y_surv_tr
 
 
 
+#' 
+#' @description Landmarks training data by making all observations after landmark time equal to NA.
+#' 
+#' @details Only difference with landmark_data is that instead of removing observations after landmark time,
+#' these observations are here set to NA so that when "fake" landmarking the scores can be determined for test data.
+#' Only apply this to test data.
+#' 
+#' @export
+#' 
+#' @keywords internal
+#' 
+
 landmark_data_fake <- function(time = NULL, mFData, X_baseline, Y_surv, age = NULL){
   n <- nrow(Y_surv)
   n_col <- ncol(mFData[[1]]@X)
   
   if(!is.null(time)){
     #
-    #Landmark training data
+    #Landmark data
     #
     #Determine which argvals to use for landmarking by cutting of at landmark_time
     max_id <- max(which(mFData[[1]]@argvals[[1]] <= time))
@@ -106,7 +125,7 @@ landmark_data_fake <- function(time = NULL, mFData, X_baseline, Y_surv, age = NU
     Y_surv <- Y_surv[which_alive,]
     #Subset the data according to above 2 conditions.
     mFData <- subset(mFData, obs = which_alive)
-    message(paste("Retained ",length(which_alive)*100/n, "percent of original training observations."))
+    message(paste("Retained ",length(which_alive)*100/n, "percent of original testing observations."))
     if(max_id < n_col){
       for(i in 1:length(mFData)){
         mFData[[i]]@X[, (max_id +1):n_col] <- NA

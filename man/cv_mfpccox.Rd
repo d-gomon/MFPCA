@@ -47,3 +47,4 @@ cv_mfpccox(
 \description{
 Cross validate MFPCCox procedure
 }
+\keyword{internal}

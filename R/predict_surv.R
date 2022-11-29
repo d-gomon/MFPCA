@@ -19,6 +19,10 @@
 #' @importFrom success extract_hazard
 #' 
 #' 
+#' @export
+#' @keywords internal
+#' 
+#' 
 
 
 predict_surv <- function(step2, times_pred, 

@@ -43,3 +43,4 @@ Landmark data (remove information on patients with failures before landmark time
 mFData_train, X_baseline_train, Y_surv_train and age_train must have the same row order. Each row should represent the same patient.
 The same is true for prediction data.
 }
+\keyword{internal}

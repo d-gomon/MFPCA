@@ -32,3 +32,4 @@ predict_surv(
 \description{
 Predict survival for prediction data
 }
+\keyword{internal}

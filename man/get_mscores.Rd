@@ -42,3 +42,4 @@ does not have to be specified, but will instead be extracted from mFData_train.}
 \description{
 Time units in Y_train and mFData_train$argvals have to be the same, otherwise cannot do landmarking!!!
 }
+\keyword{internal}

@@ -19,16 +19,25 @@
 #' @import doSNOW
 #' @import devtools
 #' 
+#' @export
+#' @keywords internal
+#' 
 
-cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
+cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM = FALSE,
                        times_pred = NULL, M = 50, uniExpansions = NULL, 
                        age = NULL, AgeDM = FALSE, type = c("scores", "AUC", "pp", "uscores"), 
                        n_folds = 10, seed = 01041996, verbose = FALSE,
                        reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = NULL){
   set.seed(seed)
   
+  if(isTRUE(FakeLM)){
+    landmark_time_temp <- NULL
+  } else{
+    landmark_time_temp <- landmark_time
+  }
+  
   #First we landmark the data
-  step1 <- landmark_data(time = landmark_time, mFData_train = mFData, 
+  step1 <- landmark_data(time = landmark_time_temp, mFData_train = mFData, 
                          X_baseline_train = X_baseline, Y_surv_train = Y_surv,
                          age_train = age)
   mFData <- step1$mFData_train
@@ -62,6 +71,16 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
                   age_pred = age[testIndexes])
     
     
+    
+    if(isTRUE(FakeLM)){
+      lm_temp <- landmark_data_fake(time = landmark_time, mFData = step1$mFData_pred, 
+                                    X_baseline = step1$X_baseline_pred, Y_surv = step1$Y_surv_pred,
+                                    age = step1$age_pred)
+      step1$mFData_pred <- lm_temp$mFData
+      step1$X_baseline_pred <- lm_temp$X_baseline
+      step1$Y_surv_pred <- lm_temp$Y_surv
+      step1["age_pred"] <- list(lm_temp$age)
+    }
     #Here something like: if Correct_LM = FALSE
     #asd <- landmark_data(step1$mFData_pred, age_pred, Y_surv_pred)
     #step1$mFData_pred <- asd$..., step1$Y_surv_pred <- asd$.... etc.
@@ -114,7 +133,10 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
 }
 
 
-rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0, 
+#' @export
+#' @keywords internal
+
+rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM = FALSE,
                        times_pred = NULL, M = 50, uniExpansions = NULL, AgeDM = FALSE,
                        age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 10, 
                        n_folds = 10, seed = 01041996, displaypb = FALSE, 
@@ -132,6 +154,10 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
                         "M", "uniExpansions", "age", "AgeDM", "type", "n_folds", "seed",
                         "verbose", "reg_baseline", "reg_long", "predict_surv", "IPCW_vars"),
                   envir=environment())
+    # clusterExport(cl, c("MFPCA", "univDecomp", "fpcaBasis", "PACE",
+    #                     "cv_mfpccox", "landmark_data", "landmark_data_fake",
+    #                     "DeMean_Var", "DeMean_Var_FunData", "DeMean_test", "DeMean_test_funData",
+    #                     "get_mscores", "predict_uscores"))
   } else{
     cl <- NULL
   }
@@ -144,7 +170,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = 0,
   out <- pblapply(1:n_reps, function(x){
     devtools::load_all()
     #suppressMessages(
-    cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, 
+    cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, FakeLM = FakeLM,
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
     age = age, AgeDM = AgeDM, type = type, n_folds = n_folds,
     seed = seed + x, verbose = verbose, reg_baseline = reg_baseline,

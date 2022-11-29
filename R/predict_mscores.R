@@ -23,6 +23,11 @@
 #' 
 #' @description Time units in Y_train and mFData_train$argvals have to be the same, otherwise cannot do landmarking!!!
 #'
+#'
+#'
+#'
+#' @export
+#' @keywords internal
 
 
 get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = NULL, 
@@ -157,6 +162,11 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
 
 
 
+
+#' @export
+#' @keywords internal
+#' 
+#' 
 
 
 predict_uscores <- function(UFPCAfit, uData_pred, age.bl.pred = NULL, age.bl = NULL, nbasis_mu = 10){
