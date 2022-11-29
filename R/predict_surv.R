@@ -11,7 +11,6 @@
 #' @param alpha Regularization scaling. Alpha = 1 (lasso), alpha = 0 (ridge), between 0 and 1 = elastic net. Default = 1 (lasso)
 #' @param IPCW_vars Character vector indicating which variables to use for IPCW. Uses all baseline variables by default.
 #' 
-#' @importFrom pec cindex
 #' @importFrom survival coxph
 #' @importFrom survival Surv
 #' @importFrom survival coxph.control

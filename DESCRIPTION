@@ -25,7 +25,15 @@ Imports:
     methods,
     mgcv (>= 1.8-33),
     plyr,
-    stats
+    stats,
+    glmnet,
+    riskRegression,
+    pbapply,
+    RColorBrewer,
+    doSNOW,
+    success,
+    survival,
+    prodlim
 Depends:
     R (>= 3.2.0),
     funData (>= 1.3-4)
@@ -35,5 +43,5 @@ Suggests:
     testthat (>= 2.0.0)
 NeedsCompilation: yes
 SystemRequirements: libfftw3 (>= 3.3.4)
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.0
 Encoding: UTF-8
