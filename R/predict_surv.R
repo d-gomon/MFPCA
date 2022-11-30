@@ -34,6 +34,10 @@ predict_surv <- function(step2, times_pred,
     IPCW_vars = "none"
   }
   
+  if(min(times_pred < step2$landmark_time)){
+    stop("Prediction times should be larger than landmark time!")
+  }
+  
   #Read step2 into active environment
   if(!missing(step2)){
     list2env(step2, envir = environment())
@@ -119,7 +123,6 @@ predict_surv <- function(step2, times_pred,
   base_land_surv <- exp(-haz$cbaseh(landmark_time))
   #Determine baseline survival probability at each time
   surv_fit <- exp(-haz$cbaseh(sort(c(landmark_time, times_pred))))
-  print(surv_fit)
   #Baseline survival ratio S_0(time)/S_0(landmark_time)
   surv_ratio <- surv_fit/base_land_surv
   #Now exponentiate each term with exp(lp) to obtain prediction
@@ -171,39 +174,81 @@ predict_surv <- function(step2, times_pred,
     #See explanation about Brier score calculation:
     #https://www.jesseislam.com/post/brier-score/
     
-    Brier_temp <- tryCatch({suppressMessages(riskRegression::Score(object = list("Cox1" = survival_from_glm),
-                          formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
-                          data = preddat,
-                          exact = FALSE, # Do not predict at event times
-                          times = times_pred,
-                          conf.int = FALSE,
-                          cens.model = "cox", # Method for estimating inverse probability of censoring weights:
-                          splitMethod = "none",
-                          B = 0,
-                          verbose = FALSE))},
-                          warning = function(cond){
-                            message("Warning from Score() function")
-                          },
-                          error = function(cond){
-                            message("Something went wrong in the riskRegression:Score() function.")
-                            message("Throwing away results from this iteration.")
-                            return(NULL)
-                          })
-    if(!is.null(Brier_temp)){
-      #Extract Brier score from Brier_temp
-      Brier_pred <- subset(Brier_temp$Brier$score, model == "Cox1")$Brier
-      Brier_pred <- c(Brier_pred, rep(NA, length(times_pred) - length(Brier_pred)))
-      names(Brier_pred) <- times_pred
-      #Extract AUC from Brier_temp
-      AUC_pred <- Brier_temp$AUC$score$AUC
-      AUC_pred <- c(AUC_pred, rep(NA, length(times_pred) - length(AUC_pred)))
-      names(AUC_pred) <- times_pred
-    } else{
-      Brier_pred <- rep(NA, length(times_pred))
-      names(Brier_pred) <- times_pred
-      AUC_pred <- rep(NA, length(times_pred))
-      names(AUC_pred) <- times_pred
+    #First we predict the absolute risk for all relevant time points:
+    predRisk <- predictRisk(survival_from_glm, preddat, c(landmark_time, times_pred))
+    #First column is predicted Risk at landmark time, second at first landmark_time and so on
+    
+    #Predicted Absolute Risk corrected for landmark time
+    predRisk[, 2:NCOL(predRisk)] <- 1 - (1-predRisk[,2:NCOL(predRisk)])/(1-predRisk[,1])
+    
+    risklist <- vector(mode ="list", length = 0)
+    for(i in 1:length(times_pred)){
+      risklist[as.character(times_pred[i])] <- predRisk[, i+1]
     }
+    
+    
+    
+    Brier_pred <- rep(NA, length(times_pred))
+    AUC_pred <- rep(NA, length(times_pred))
+    for(i in 1:length(times_pred)){
+      pred_time <- times_pred[i]
+      #The current absolute risk with landmarking is given by: 
+      #1 - S(t)/S(t') = 1 - (1-F(t))/(1-F(t')) with t' landmark time (always first column)
+      current_risk <- 1 - (1-predRisk[,i+1])/(1-predRisk[,1])
+      preddat$predrisk <- current_risk
+      
+      Brier_temp <- riskRegression::Score(
+        list("timepred" = current_risk),
+        formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
+        data = preddat,
+        exact = FALSE, # Do not predict at event times
+        times = pred_time,
+        conf.int = FALSE,
+        cens.model = "cox", # Method for estimating inverse probability of censoring weights:
+        splitMethod = "none",
+        B = 0,
+        verbose = FALSE
+      )
+      Brier_pred[i] <- subset(Brier_temp$Brier$score, model == "timepred")$Brier
+      AUC_pred[i] <- Brier_temp$AUC$score$AUC
+    }
+    names(Brier_pred) <- times_pred
+    
+    
+    # Brier_temp <- tryCatch({suppressMessages(riskRegression::Score(object = list("Cox1" = survival_from_glm),
+    #                       formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
+    #                       data = preddat,
+    #                       exact = FALSE, # Do not predict at event times
+    #                       times = times_pred,
+    #                       conf.int = FALSE,
+    #                       cens.model = "cox", # Method for estimating inverse probability of censoring weights:
+    #                       splitMethod = "none",
+    #                       B = 0,
+    #                       verbose = FALSE))},
+    #                       warning = function(cond){
+    #                         message("Warning from Score() function")
+    #                       },
+    #                       error = function(cond){
+    #                         message("Something went wrong in the riskRegression:Score() function.")
+    #                         message("Throwing away results from this iteration.")
+    #                         return(NULL)
+    #                       })
+    # Brieer_temp <<- Brier_temp
+    # if(!is.null(Brier_temp)){
+    #   #Extract Brier score from Brier_temp
+    #   Brier_pred <- subset(Brier_temp$Brier$score, model == "Cox1")$Brier
+    #   Brier_pred <- c(Brier_pred, rep(NA, length(times_pred) - length(Brier_pred)))
+    #   names(Brier_pred) <- times_pred
+    #   #Extract AUC from Brier_temp
+    #   AUC_pred <- Brier_temp$AUC$score$AUC
+    #   AUC_pred <- c(AUC_pred, rep(NA, length(times_pred) - length(AUC_pred)))
+    #   names(AUC_pred) <- times_pred
+    # } else{
+    #   Brier_pred <- rep(NA, length(times_pred))
+    #   names(Brier_pred) <- times_pred
+    #   AUC_pred <- rep(NA, length(times_pred))
+    #   names(AUC_pred) <- times_pred
+    # }
   }
   
   out <- list(prob_surv_pred = prob_surv_pred,
