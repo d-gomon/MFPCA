@@ -178,16 +178,8 @@ predict_surv <- function(step2, times_pred,
     predRisk <- predictRisk(survival_from_glm, preddat, c(landmark_time, times_pred))
     #First column is predicted Risk at landmark time, second at first landmark_time and so on
     
-    #Predicted Absolute Risk corrected for landmark time
-    predRisk[, 2:NCOL(predRisk)] <- 1 - (1-predRisk[,2:NCOL(predRisk)])/(1-predRisk[,1])
     
-    risklist <- vector(mode ="list", length = 0)
-    for(i in 1:length(times_pred)){
-      risklist[as.character(times_pred[i])] <- predRisk[, i+1]
-    }
-    
-    
-    
+    #Add error checking to this later. When performing IPCW we might get errors again!
     Brier_pred <- rep(NA, length(times_pred))
     AUC_pred <- rep(NA, length(times_pred))
     for(i in 1:length(times_pred)){
