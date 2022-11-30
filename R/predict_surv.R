@@ -9,7 +9,8 @@
 #' @param reg_baseline Should baseline covariates be regularized?
 #' @param reg_long Should longitudinal covariates be regularized?
 #' @param alpha Regularization scaling. Alpha = 1 (lasso), alpha = 0 (ridge), between 0 and 1 = elastic net. Default = 1 (lasso)
-#' @param IPCW_vars Character vector indicating which variables to use for IPCW. Uses all baseline variables by default.
+#' @param IPCW_vars Character vector indicating which variables to use for IPCW.
+#' Extra options are "all" (all baseline variables) and "none" (don't perform IPCW). Default is no IPCW ("none").
 #' 
 #' @importFrom survival coxph
 #' @importFrom survival Surv
@@ -27,8 +28,12 @@
 
 predict_surv <- function(step2, times_pred, 
                          reg_baseline = FALSE, 
-                         reg_long = TRUE, alpha = 1, accuracy_train = NULL, IPCW_vars = NULL){
-
+                         reg_long = TRUE, alpha = 1, accuracy_train = NULL, IPCW_vars = c("none", "all")){
+  
+  if(identical(IPCW_vars, c("none", "all"))){
+    IPCW_vars = "none"
+  }
+  
   #Read step2 into active environment
   if(!missing(step2)){
     list2env(step2, envir = environment())
@@ -114,6 +119,7 @@ predict_surv <- function(step2, times_pred,
   base_land_surv <- exp(-haz$cbaseh(landmark_time))
   #Determine baseline survival probability at each time
   surv_fit <- exp(-haz$cbaseh(sort(c(landmark_time, times_pred))))
+  print(surv_fit)
   #Baseline survival ratio S_0(time)/S_0(landmark_time)
   surv_ratio <- surv_fit/base_land_surv
   #Now exponentiate each term with exp(lp) to obtain prediction
@@ -150,8 +156,10 @@ predict_surv <- function(step2, times_pred,
       preddat <- as.data.frame(cbind(step2$Y_pred, lp_pred, step1$X_baseline_pred))
       colnames(preddat)[3] <- "linpred"
     }
-    if(is.null(IPCW_vars)){
+    if(IPCW_vars == "all"){
       featureNames <- paste(colnames(step1$X_baseline_pred), collapse = " + ")  
+    } else if( IPCW_vars == "none"){
+      featureNames <- "1"  
     } else{
       if(!is.character(IPCW_vars)){
         stop("Please specify IPCW_vars as character vector of variable names.")

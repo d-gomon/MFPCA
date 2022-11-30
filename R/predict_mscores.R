@@ -178,10 +178,15 @@ predict_uscores <- function(UFPCAfit, uData_pred, age.bl.pred = NULL, age.bl = N
   
   #Extract data from UFPCAfit
   npc <- dim(UFPCAfit$scores)[2]
+  #Matrix of dimensions t(npc, times) = (times, npc)
   Z <- efunctions <- t(UFPCAfit$functions@X)
+  #sigma2 is a number
   sigma2 <- UFPCAfit$sigma2
+  #evalues is matrix of dimensions (npc)
   evalues <- UFPCAfit$evalues
+  #gam0 is GAM built for de-meaning
   gam0 <- UFPCAfit$gam0
+  #D.inv is matrix of (npc, npc) with 1/evalues on diagonal.
   D.inv = diag(1/evalues, nrow = npc, ncol = npc)
   
   if(!is.null(age.bl.pred) ){
@@ -207,7 +212,10 @@ predict_uscores <- function(UFPCAfit, uData_pred, age.bl.pred = NULL, age.bl = N
   scores_fail_partial <- c()
   # no calculation of confidence bands, no variance matrix
   for (i.subj in seq_len(I.pred)) {
+    #At which point do we observe non-NA value?
     obs.points = which(!is.na(Y.pred[i.subj, ]))
+    
+    #If we cannot estimate sigma^2 and we have fewer observation points than required number of principal components.
     if (sigma2 == 0 & length(obs.points) < npc) {
       if(length(obs.points) == 0){
         scores_fail <- c(scores_fail, i.subj)
@@ -234,9 +242,16 @@ predict_uscores <- function(UFPCAfit, uData_pred, age.bl.pred = NULL, age.bl = N
         next
       }
     }
+    
+    #Assume notation as in Chen_all_2017 PACE article
+    #Zcur is an (non-null times, npc) matrix
     Zcur = matrix(Z[obs.points, ], nrow = length(obs.points),
                   ncol = dim(Z)[2])
+    #crossprod(Zcur) is an (npc, npc) matrix
+    #D.inv is an (npc, npc) matrix
+    #ZtZ_sD.inv is estimate for \Sigma_{Y_i}^{-1}. it's an (npc, npc) matrix.
     ZtZ_sD.inv = solve(crossprod(Zcur) + sigma2 * D.inv)
+    #scores are then given by (npc, npc) matrix multiplied by (npc, non-null times) %*% (non-null times, 1) = (npc, 1) vector
     scores[i.subj, ] = ZtZ_sD.inv %*% crossprod(Zcur, Y.tilde[i.subj, obs.points])
     if(!is.null(age.bl.pred)){
       fit[i.subj, ] <- mu_mat[i.subj,] + tcrossprod(scores[i.subj, ], efunctions)

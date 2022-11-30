@@ -27,9 +27,10 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
                        times_pred = NULL, M = 50, uniExpansions = NULL, 
                        age = NULL, AgeDM = FALSE, type = c("scores", "AUC", "pp", "uscores"), 
                        n_folds = 10, seed = 01041996, verbose = FALSE,
-                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = NULL){
+                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none"){
   set.seed(seed)
   
+  #When using "Fake" Landmarking, do not landmark training data, only landmark test data (see below)
   if(isTRUE(FakeLM)){
     landmark_time_temp <- NULL
   } else{
@@ -71,7 +72,8 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
                   age_pred = age[testIndexes])
     
     
-    
+    #If we want to "Fake" Landmark, we only landmark the test data, but do so by setting all observations 
+    #that are landmarked to NA.
     if(isTRUE(FakeLM)){
       lm_temp <- landmark_data_fake(time = landmark_time, mFData = step1$mFData_pred, 
                                     X_baseline = step1$X_baseline_pred, Y_surv = step1$Y_surv_pred,
@@ -141,7 +143,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
                        age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 10, 
                        n_folds = 10, seed = 01041996, displaypb = FALSE, 
                        n_cores = 1, verbose = FALSE,
-                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = NULL){
+                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none"){
   
   if(n_cores > 1){
     #Create a cluster for parallel computing and error check
