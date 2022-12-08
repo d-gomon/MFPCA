@@ -177,6 +177,8 @@ predict_surv <- function(step2, times_pred,
     #First we predict the absolute risk for all relevant time points:
     predRisk <- predictRisk(survival_from_glm, preddat, c(landmark_time, times_pred))
     #First column is predicted Risk at landmark time, second at first landmark_time and so on
+    #Sometimes, when the risk-adjustment factor becomes too large, predRisk[,1] might contain 1's (rounding problem in R)
+    #This causes a division by 0 further on in the code. We negate this further on in current_risk
     
     
     #Add error checking to this later. When performing IPCW we might get errors again!
@@ -187,6 +189,8 @@ predict_surv <- function(step2, times_pred,
       #The current absolute risk with landmarking is given by: 
       #1 - S(t)/S(t') = 1 - (1-F(t))/(1-F(t')) with t' landmark time (always first column)
       current_risk <- 1 - (1-predRisk[,i+1])/(1-predRisk[,1])
+      #Negate the problem when predRisk[,1] becomes equal to 1.
+      current_risk[which(is.nan(current_risk))] <- 1
       preddat$predrisk <- current_risk
       
       Brier_temp <- riskRegression::Score(

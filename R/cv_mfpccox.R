@@ -106,18 +106,17 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
       step1$mFData_pred <- DeMean_test(step1$mFData_pred, var = step1$age_pred, meanFuns = DeMean_temp$meanFuns)$mFData
     }
     
+    
     message("Step 2/3")
     #Perform Step 2 of procedure. 
     step2 <- get_mscores(step1 = step1, M = M, 
                          uniExpansions = uniExpansions,
                          type = type, verbose = verbose)
     
-  
     
     message("Step 3/3")
     step3 <- predict_surv(step2 = step2, times_pred = times_pred, 
                           reg_baseline = reg_baseline, reg_long = reg_long, IPCW_vars = IPCW_vars)
-    
     
     
     #Calculate AUC for current fold
