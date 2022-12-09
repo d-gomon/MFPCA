@@ -104,6 +104,8 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
       DeMean_temp <- DeMean_Var(mFData = step1$mFData_train, var = step1$age_train)
       step1$mFData_train <- DeMean_temp$mFData
       step1$mFData_pred <- DeMean_test(step1$mFData_pred, var = step1$age_pred, meanFuns = DeMean_temp$meanFuns)$mFData
+      step1["age_pred"] <- list(NULL)
+      step1["age_train"] <- list(NULL)
     }
     
     
