@@ -202,10 +202,11 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
       warning(paste0("More cores requested (", n_cores ,") than detected (", real_cores,") by R. \n Proceed at own risk."))
     }
     cl <- makeCluster(n_cores)
-    clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
-                        "M", "uniExpansions", "age", "AgeDM", "type", "n_folds", "seed",
-                        "verbose", "reg_baseline", "reg_long", "predict_surv", "IPCW_vars", "trueSurv"),
-                  envir=environment())
+    parallel::clusterEvalQ(cl, library(MFPCA))
+    # clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
+    #                     "M", "uniExpansions", "age", "AgeDM", "type", "n_folds", "seed",
+    #                     "verbose", "reg_baseline", "reg_long", "predict_surv", "IPCW_vars", "trueSurv"),
+    #               envir=environment())
     # clusterExport(cl, c("MFPCA", "univDecomp", "fpcaBasis", "PACE",
     #                     "cv_mfpccox", "landmark_data", "landmark_data_fake",
     #                     "DeMean_Var", "DeMean_Var_FunData", "DeMean_test", "DeMean_test_funData",
