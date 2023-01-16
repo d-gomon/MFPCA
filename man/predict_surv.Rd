@@ -11,7 +11,7 @@ predict_surv(
   reg_long = TRUE,
   alpha = 1,
   accuracy_train = NULL,
-  IPCW_vars = NULL
+  IPCW_vars = c("none", "all")
 )
 }
 \arguments{
@@ -27,7 +27,8 @@ predict_surv(
 
 \item{accuracy_train}{Should accuracy measures (AUC/Brier score) be calculated on the training set?}
 
-\item{IPCW_vars}{Character vector indicating which variables to use for IPCW. Uses all baseline variables by default.}
+\item{IPCW_vars}{Character vector indicating which variables to use for IPCW.
+Extra options are "all" (all baseline variables) and "none" (don't perform IPCW). Default is no IPCW ("none").}
 }
 \description{
 Predict survival for prediction data

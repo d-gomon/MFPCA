@@ -17,6 +17,7 @@
 #' @importFrom survival coxph.control
 #' @import prodlim
 #' @import riskRegression
+#' @import glmnet
 #' @importFrom success extract_hazard
 #' 
 #' 
@@ -70,7 +71,6 @@ predict_surv <- function(step2, times_pred,
     #Setting lambda to 0 for some reason doesn't work in glmnet 
     featureNames_cox <- paste(colnames(step2$traindat), collapse = " + ")
     survival_from_glm <- coxph(as.formula(paste0("Surv(time, status) ~", featureNames_cox)), data = cbind(step2$Y_train, step2$traindat), x = TRUE, y = TRUE)
-    
     #We predict the linear predictor using the fitted cox model for both training and test data.
     lp_train <- predict(survival_from_glm, type = "lp")
     lp_pred <- predict(survival_from_glm, newdata = step2$preddat, type = "lp")
@@ -103,7 +103,7 @@ predict_surv <- function(step2, times_pred,
   }
 
   
-
+  
   
   
   
@@ -117,24 +117,7 @@ predict_surv <- function(step2, times_pred,
   #S(s'|s) = (S_0(s')/S_0(s))^(exp(linpred))
   #See Li/Luo (2019) Dynamic prediction of Alzheimer
   
-  #Use the hazard to output predicted survival probabilities.
-  haz <- success::extract_hazard(survival_from_glm)
-  #Determine baseline survival probability at landmark time:
-  base_land_surv <- exp(-haz$cbaseh(landmark_time))
-  #Determine baseline survival probability at each time
-  surv_fit <- exp(-haz$cbaseh(sort(c(landmark_time, times_pred))))
-  #Baseline survival ratio S_0(time)/S_0(landmark_time)
-  surv_ratio <- surv_fit/base_land_surv
-  #Now exponentiate each term with exp(lp) to obtain prediction
-  prob_surv_pred <- matrix(surv_ratio^(rep(exp(lp_pred), each = length(surv_ratio))), 
-                      ncol = length(surv_ratio), byrow = TRUE)
-  prob_surv_train <- matrix(surv_ratio^(rep(exp(lp_train), each = length(surv_ratio))), 
-                            ncol = length(surv_ratio), byrow = TRUE)
-  #Give names to rows and columns
-  colnames(prob_surv_pred) <- c(landmark_time, times_pred)
-  rownames(prob_surv_pred) <- rownames(X_pred)
-  colnames(prob_surv_train) <- c(landmark_time, times_pred)
-  rownames(prob_surv_train) <- rownames(X_train)
+  
   
   
   #Evaluate AUC for training data.
@@ -176,6 +159,15 @@ predict_surv <- function(step2, times_pred,
     
     #First we predict the absolute risk for all relevant time points:
     predRisk <- predictRisk(survival_from_glm, preddat, c(landmark_time, times_pred))
+    rownames(predRisk) <- rownames(X_pred)
+    colnames(predRisk) <- c(landmark_time, times_pred)
+    
+    
+    #Add lp_train to traindat to predictRisk in regularized case, do this above.
+    # predRisk_train <- predictRisk(survival_from_glm, traindat, c(landmark_time, times_pred))
+    # colnames(predRisk_train) <- c(landmark_time, times_pred)
+    # rownames(predRisk_train) <- rownames(X_train)
+    
     #First column is predicted Risk at landmark time, second at first landmark_time and so on
     #Sometimes, when the risk-adjustment factor becomes too large, predRisk[,1] might contain 1's (rounding problem in R)
     #This causes a division by 0 further on in the code. We negate this further on in current_risk
@@ -191,64 +183,42 @@ predict_surv <- function(step2, times_pred,
       current_risk <- 1 - (1-predRisk[,i+1])/(1-predRisk[,1])
       #Negate the problem when predRisk[,1] becomes equal to 1.
       current_risk[which(is.nan(current_risk))] <- 1
-      preddat$predrisk <- current_risk
+      #preddat$predrisk <- current_risk
       
-      Brier_temp <- riskRegression::Score(
+      Brier_temp <- tryCatch(
+        {riskRegression::Score(
         list("timepred" = current_risk),
         formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
         data = preddat,
         exact = FALSE, # Do not predict at event times
         times = pred_time,
         conf.int = FALSE,
-        cens.model = "cox", # Method for estimating inverse probability of censoring weights:
+        cens.model = "km", # Method for estimating inverse probability of censoring weights:
         splitMethod = "none",
         B = 0,
         verbose = FALSE
+      )},
+      error = function(cond){
+        return(NULL)
+      }
       )
-      Brier_pred[i] <- subset(Brier_temp$Brier$score, model == "timepred")$Brier
-      AUC_pred[i] <- Brier_temp$AUC$score$AUC
+      if(!is.null(Brier_temp)){
+        Brier_pred[i] <- subset(Brier_temp$Brier$score, model == "timepred")$Brier
+        AUC_pred[i] <- Brier_temp$AUC$score$AUC
+      } else{
+        Brier_pred[i] <- NA
+        AUC_pred[i] <- NA
+      }
+      
     }
     names(Brier_pred) <- times_pred
     
     
-    # Brier_temp <- tryCatch({suppressMessages(riskRegression::Score(object = list("Cox1" = survival_from_glm),
-    #                       formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
-    #                       data = preddat,
-    #                       exact = FALSE, # Do not predict at event times
-    #                       times = times_pred,
-    #                       conf.int = FALSE,
-    #                       cens.model = "cox", # Method for estimating inverse probability of censoring weights:
-    #                       splitMethod = "none",
-    #                       B = 0,
-    #                       verbose = FALSE))},
-    #                       warning = function(cond){
-    #                         message("Warning from Score() function")
-    #                       },
-    #                       error = function(cond){
-    #                         message("Something went wrong in the riskRegression:Score() function.")
-    #                         message("Throwing away results from this iteration.")
-    #                         return(NULL)
-    #                       })
-    # Brieer_temp <<- Brier_temp
-    # if(!is.null(Brier_temp)){
-    #   #Extract Brier score from Brier_temp
-    #   Brier_pred <- subset(Brier_temp$Brier$score, model == "Cox1")$Brier
-    #   Brier_pred <- c(Brier_pred, rep(NA, length(times_pred) - length(Brier_pred)))
-    #   names(Brier_pred) <- times_pred
-    #   #Extract AUC from Brier_temp
-    #   AUC_pred <- Brier_temp$AUC$score$AUC
-    #   AUC_pred <- c(AUC_pred, rep(NA, length(times_pred) - length(AUC_pred)))
-    #   names(AUC_pred) <- times_pred
-    # } else{
-    #   Brier_pred <- rep(NA, length(times_pred))
-    #   names(Brier_pred) <- times_pred
-    #   AUC_pred <- rep(NA, length(times_pred))
-    #   names(AUC_pred) <- times_pred
-    # }
+    
   }
   
-  out <- list(prob_surv_pred = prob_surv_pred,
-              prob_surv_train = prob_surv_train,
+  out <- list(prob_surv_pred = 1- predRisk,
+              #prob_surv_train = 1- predRisk_train,
               cox_train = cv_fit_train,
               times_pred = times_pred,
               AUC_pred = AUC_pred,
@@ -264,4 +234,37 @@ predict_surv <- function(step2, times_pred,
 }
 
 
-
+# Brier_temp <- tryCatch({suppressMessages(riskRegression::Score(object = list("Cox1" = survival_from_glm),
+#                       formula = as.formula(paste0("Surv(time, status) ~", featureNames)),
+#                       data = preddat,
+#                       exact = FALSE, # Do not predict at event times
+#                       times = times_pred,
+#                       conf.int = FALSE,
+#                       cens.model = "cox", # Method for estimating inverse probability of censoring weights:
+#                       splitMethod = "none",
+#                       B = 0,
+#                       verbose = FALSE))},
+#                       warning = function(cond){
+#                         message("Warning from Score() function")
+#                       },
+#                       error = function(cond){
+#                         message("Something went wrong in the riskRegression:Score() function.")
+#                         message("Throwing away results from this iteration.")
+#                         return(NULL)
+#                       })
+# Brieer_temp <<- Brier_temp
+# if(!is.null(Brier_temp)){
+#   #Extract Brier score from Brier_temp
+#   Brier_pred <- subset(Brier_temp$Brier$score, model == "Cox1")$Brier
+#   Brier_pred <- c(Brier_pred, rep(NA, length(times_pred) - length(Brier_pred)))
+#   names(Brier_pred) <- times_pred
+#   #Extract AUC from Brier_temp
+#   AUC_pred <- Brier_temp$AUC$score$AUC
+#   AUC_pred <- c(AUC_pred, rep(NA, length(times_pred) - length(AUC_pred)))
+#   names(AUC_pred) <- times_pred
+# } else{
+#   Brier_pred <- rep(NA, length(times_pred))
+#   names(Brier_pred) <- times_pred
+#   AUC_pred <- rep(NA, length(times_pred))
+#   names(AUC_pred) <- times_pred
+# }

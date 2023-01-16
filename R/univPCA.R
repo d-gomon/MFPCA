@@ -240,6 +240,9 @@
 #'   functions used for estimation of the mean function and bivariate smoothing 
 #'   of the covariance surface. Defaults to \code{10} (cf. 
 #'   \code{fpca.sc} in \strong{refund}).
+#' @param age.bl Age at baseline for age adjustment. Default = NULL (no age adjustment)
+#' @param age.bl.pred Age at baseline for age adjustment for prediction set. Default = NULL (no age adjustment)
+#' @param nbasis_mu Number of basis functions to use for mean smoothing. Default = 10.
 #' @param pve A numeric value between 0 and 1, the proportion of variance 
 #'   explained: used to choose the number of principal components. Defaults to 
 #'   \code{0.99} (cf. \code{fpca.sc} in \strong{refund}).

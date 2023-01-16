@@ -106,6 +106,8 @@ landmark_data <- function(time = NULL, mFData_train, X_baseline_train, Y_surv_tr
 #' 
 #' @export
 #' 
+#' @noRd
+#' 
 #' @keywords internal
 #' 
 
@@ -121,7 +123,9 @@ landmark_data_fake <- function(time = NULL, mFData, X_baseline, Y_surv, age = NU
     max_id <- max(which(mFData[[1]]@argvals[[1]] <= time))
     #Determine which observations to use by eliminating people with failures before landmark_time (requires Y_train)
     which_alive <- which(Y_surv[, "time"] > time)
-    X_baseline <- X_baseline[which_alive, , drop = FALSE]
+    if(!is.null(X_baseline)){
+      X_baseline <- X_baseline[which_alive, , drop = FALSE]  
+    }
     Y_surv <- Y_surv[which_alive,]
     #Subset the data according to above 2 conditions.
     mFData <- subset(mFData, obs = which_alive)

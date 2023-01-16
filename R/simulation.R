@@ -93,6 +93,7 @@
 #'   \code{\link{eVal}} for details.
 #' @param N An integer, specifying the number of multivariate functions to be 
 #'   generated.
+#' @param custom_values Custom values for variance of scores. Numeric vector input.
 #'   
 #' @return \item{simData}{A \code{\linkS4class{multiFunData}} object with 
 #'   \code{N} observations, representing the simulated multivariate functional 

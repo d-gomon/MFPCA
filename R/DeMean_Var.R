@@ -10,6 +10,8 @@
 #' @importFrom funData nObs
 #' 
 #' @export
+#' @noRd
+#' @keywords internal
 #' 
 #' 
 
@@ -56,6 +58,7 @@ DeMean_Var <- function(mFData, var = NULL, nbasis = NULL, extraInfo = TRUE){
 
 
 #' @export
+#' @noRd
 #' @keywords internal
 
 DeMean_Var_FunData <- function(funData, var = NULL, nbasis = NULL, extraInfo = TRUE){
@@ -100,6 +103,7 @@ DeMean_Var_FunData <- function(funData, var = NULL, nbasis = NULL, extraInfo = T
 
 #' @export
 #' @keywords internal
+#' @noRd
 
 DeMean_test <- function(mFData, var = NULL, meanFuns){
   if(is.null(var)){
@@ -130,6 +134,7 @@ DeMean_test <- function(mFData, var = NULL, meanFuns){
 
 #' @export
 #' @keywords internal
+#' @noRd
 DeMean_test_funData <- function(funData, var = NULL, meanFun){
   Y.pred <- funData@X
   X <- funData@argvals[[1]]

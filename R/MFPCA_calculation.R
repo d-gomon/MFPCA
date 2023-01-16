@@ -193,6 +193,7 @@ calcBasisIntegrals <- function(basisFunctions, dimSupp, argvals)
 #'   \code{NULL}, the curves are resampled with replacement within the groups
 #'   defined by \code{bootstrapStrat}, hence keeping the group proportions
 #'   fixed.
+#' @param age.bl Age at baseline observation for Age Adjustment. Default = NULL (no Age adjustment).
 #' @param verbose Logical. If \code{TRUE}, the function reports
 #'   extra-information about the progress (incl. timestamps). Defaults to
 #'   \code{options()$verbose}.
@@ -363,7 +364,7 @@ calcBasisIntegrals <- function(basisFunctions, dimSupp, argvals)
 #' par(oldPar)
 MFPCA <- function(mFData, M, uniExpansions, weights = rep(1, length(mFData)), fit = FALSE, approx.eigen = FALSE,
                   bootstrap = FALSE, nBootstrap = NULL, bootstrapAlpha = 0.05, bootstrapStrat = NULL, 
-                  verbose = options()$verbose, age.bl = NULL, landmark = NULL)
+                  verbose = options()$verbose, age.bl = NULL)
 {
   if(! inherits(mFData, "multiFunData"))
     stop("Parameter 'mFData' must be passed as a multiFunData object.")

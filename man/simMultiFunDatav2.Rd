@@ -45,6 +45,8 @@ based on the truncated Karhunen-Loeve representation. See
 
 \item{N}{An integer, specifying the number of multivariate functions to be 
 generated.}
+
+\item{custom_values}{Custom values for variance of scores. Numeric vector input.}
 }
 \value{
 \item{simData}{A \code{\linkS4class{multiFunData}} object with 

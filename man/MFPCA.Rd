@@ -17,8 +17,7 @@ MFPCA(
   bootstrapAlpha = 0.05,
   bootstrapStrat = NULL,
   verbose = options()$verbose,
-  age.bl = NULL,
-  landmark = NULL
+  age.bl = NULL
 )
 }
 \arguments{
@@ -67,6 +66,8 @@ fixed.}
 \item{verbose}{Logical. If \code{TRUE}, the function reports
 extra-information about the progress (incl. timestamps). Defaults to
 \code{options()$verbose}.}
+
+\item{age.bl}{Age at baseline observation for Age Adjustment. Default = NULL (no Age adjustment).}
 }
 \value{
 An object of class \code{MFPCAfit} containing the following
