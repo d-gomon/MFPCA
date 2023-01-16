@@ -28,7 +28,7 @@
 #' @import pbapply
 #' @import parallel
 #' @import doSNOW
-#' @import devtools
+#  #' @import devtools
 #' 
 #' @export
 #' @keywords internal
@@ -221,7 +221,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   }
   set.seed(seed)
   out <- pblapply(1:n_reps, function(x){
-    devtools::load_all()
+    #devtools::load_all()
     #suppressMessages(
     cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, FakeLM = FakeLM,
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
