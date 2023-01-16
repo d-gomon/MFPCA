@@ -26,6 +26,13 @@
 
 true_validation <- function(trueCDF, Y_surv, landmark_time = NULL){
   
+  if(!is.null(landmark_time)){
+    #Landmark data
+    which_alive <- which(Y_surv[, "time"] > landmark_time)
+    trueCDF <- trueCDF[which_alive,]
+    Y_surv <- Y_surv[which_alive, ]  
+  }
+  
   
   
   asdt <- data.frame(asd = rep(1, nrow(trueCDF)))
