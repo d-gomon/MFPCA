@@ -153,16 +153,21 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     Brier_temp[i, ] <- step3$Brier_pred
     
     #If true absolute risk is specified, calculate MSE between Landmarked Survival probability and actual landmarked survival probability
-    #We have: F(t) true and \widehat{F(t)}, given as truecdf and step3$prob_surv_pred respectively.
-    #So we calculate S(t|t_LM) = 1 - (1-F(t))/(1-F(t_LM)) and \hat{S}(t|t_LM) = (1-\hat{F}(t))/(1 - \hat{F}(t_LM)) respectively
+    #We have: F(t) true and \widehat{S(t)}, given as truecdf and step3$prob_surv_pred respectively.
+    #So we calculate S(t|t_LM) = 1 - (1-F(t))/(1-F(t_LM)) and \hat{S}(t|t_LM) = (1-\hat{S}(t))/(1 - \hat{S}(t_LM)) respectively
     if(!missing(truecdf)){
       Ft_timespred <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(times_pred, colnames(truecdf))]
       Ft_lm <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(landmark_time, colnames(truecdf))]
-      Fthat_timespred <- step3$prob_surv_pred[, match(times_pred, colnames(step3$prob_surv_pred))]
-      Fthat_lm <- step3$prob_surv_pred[, match(landmark_time, colnames(step3$prob_surv_pred))]
+      Sthat_timespred <- step3$prob_surv_pred[, match(times_pred, colnames(step3$prob_surv_pred))]
+      if(isTRUE(FakeLM)){
+        Sthat_lm <- step3$prob_surv_pred[, match(landmark_time, colnames(step3$prob_surv_pred))]  
+      } else{
+        Sthat_lm <- rep(1, nrow(Sthat_timespred))
+      }
+      
       St_true <- (1-Ft_timespred)/(1-Ft_lm)
-      St_hat <- (1-Fthat_timespred)/(1-Fthat_lm)
-      MSE_surv[i,] <- sapply(times_pred, function(x){ MSE_func(St_true[, match(x, colnames(St_true))], St_hat[, match(x, colnames(St_hat))] ) })
+      St_hat <- (Sthat_timespred)/(Sthat_lm)
+      MSE_surv[i,] <- colMeans((St_true - St_hat)^2)
     }
   }
   #Average AUC over folds:
@@ -218,14 +223,10 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
     }
     cl <- makeCluster(n_cores)
     parallel::clusterEvalQ(cl, library(MFPCA))
-    # clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
-    #                     "M", "uniExpansions", "age", "AgeDM", "type", "n_folds", "seed",
-    #                     "verbose", "reg_baseline", "reg_long", "predict_surv", "IPCW_vars", "truecdf"),
-    #               envir=environment())
-    # clusterExport(cl, c("MFPCA", "univDecomp", "fpcaBasis", "PACE",
-    #                     "cv_mfpccox", "landmark_data", "landmark_data_fake",
-    #                     "DeMean_Var", "DeMean_Var_FunData", "DeMean_test", "DeMean_test_funData",
-    #                     "get_mscores", "predict_uscores"))
+    #clusterExport(cl, c("mFData", "X_baseline", "Y_surv", "landmark_time", "times_pred",
+    #                    "M", "uniExpansions", "age", "AgeDM", "type", "n_folds", "seed",
+    #                    "verbose", "reg_baseline", "reg_long", "predict_surv", "IPCW_vars", "truecdf"),
+    #              envir=environment())
   } else{
     cl <- NULL
   }
