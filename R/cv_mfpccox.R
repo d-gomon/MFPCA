@@ -39,7 +39,7 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
                        age = NULL, AgeDM = FALSE, type = c("scores", "AUC", "pp", "uscores"), 
                        n_folds = 10, seed = 01041996, verbose = FALSE,
                        reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none",
-                       de_bug = FALSE, truecdf){
+                       de_bug = FALSE, truecdf = NULL){
   set.seed(seed)
   
   #When using "Fake" Landmarking, do not landmark training data, only landmark test data (see below)
@@ -69,7 +69,7 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
   AUC_temp <- matrix(NA, nrow = n_folds, ncol = length(times_pred))
   Brier_temp <- matrix(NA, nrow = n_folds, ncol = length(times_pred))
   
-  if(!missing(truecdf)){
+  if(!is.null(truecdf)){
     MSE_surv <- matrix(NA, nrow = n_folds, ncol = length(times_pred))
     truecdf <- truecdf[, match(c(landmark_time, times_pred), colnames(truecdf))]
   }
@@ -155,7 +155,7 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     #If true absolute risk is specified, calculate MSE between Landmarked Survival probability and actual landmarked survival probability
     #We have: F(t) true and \widehat{S(t)}, given as truecdf and step3$prob_surv_pred respectively.
     #So we calculate S(t|t_LM) = 1 - (1-F(t))/(1-F(t_LM)) and \hat{S}(t|t_LM) = (1-\hat{S}(t))/(1 - \hat{S}(t_LM)) respectively
-    if(!missing(truecdf)){
+    if(!is.null(truecdf)){
       Ft_timespred <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(times_pred, colnames(truecdf))]
       Ft_lm <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(landmark_time, colnames(truecdf))]
       Sthat_timespred <- step3$prob_surv_pred[, match(times_pred, colnames(step3$prob_surv_pred))]
@@ -185,7 +185,7 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     out$step2 <- step2
     out$step3 <- step3
   }
-  if(!missing(truecdf)){
+  if(!is.null(truecdf)){
     MSE <- colMeans(MSE_surv, na.rm = TRUE)
     names(MSE) <- times_pred
     out$MSE <- MSE
@@ -213,7 +213,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
                        age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 10, 
                        n_folds = 10, seed = 01041996, displaypb = FALSE, 
                        n_cores = 1, verbose = FALSE,
-                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none", truecdf){
+                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none", truecdf = NULL){
   
   if(n_cores > 1){
     #Create a cluster for parallel computing and error check
@@ -259,7 +259,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   names(AUC) <- times_pred
   Brier <- rowMeans(Brier_meas)
   names(Brier) <- times_pred
-  if(!missing(truecdf)){
+  if(!is.null(truecdf)){
     MSE_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
     for(i in 1:length(out)){
       MSE_meas[,i] <- out[[i]]$MSE
@@ -269,7 +269,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   }
   final <- list(AUC_pred = AUC,
                 Brier_pred = Brier)
-  if(!missing(truecdf)){
+  if(!is.null(truecdf)){
     final$MSE <- MSE
   }
   class(final) = "rcv_mfpccox"
