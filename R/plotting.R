@@ -6,6 +6,7 @@
 #' @param legend_pos Legend position. See plot()
 #' @param title Title for legend.
 #' @param main_title Main title for plot.
+#' @param sub_title Subtitle for plot.
 #' @param col A vector of length(x) specifying which color to use for each object in x. Default uses qual pallette from brewer.pal.
 #' @param ... Further parameters to plot()
 #' 
@@ -14,7 +15,7 @@
 #' @export
 
 
-plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_title = "", col = NULL, ...){
+plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_title = "", sub_title = "", col = NULL, ...){
   if(is.null(col)){
     #Automatically choose colors if none specified
     qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
@@ -24,8 +25,10 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
   }
   if("MSE" %in% names(x[[1]])){
     par(mfrow = c(1,3))
+    par(mar = c(5.1, 4.1, 7.1, 2.1))
   } else{
     par(mfrow = c(1,2))
+    par(mar = c(5.1, 4.1, 7.1, 2.1))
   }
   
   
@@ -33,8 +36,8 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
   ymax <- max(sapply(x, function(t) max(t$AUC_pred, na.rm = TRUE) ))
   ymin <- min(sapply(x, function(t) min(t$AUC_pred, na.rm = TRUE) ))
   xlims <- as.numeric(names(x[[1]]$AUC_pred))
-  plot(NULL, ylim=c(ymin, ymax), ylab="tdAUC (higher is better)", xlab="Time since baseline (Years)",
-       xlim = c(min(xlims), max(xlims)), ...)
+  plot(NULL, ylim=c(ymin, ymax), ylab="tdAUC (higher is better)", xlab="Years since baseline",
+       xlim = c(min(xlims), max(xlims)), cex.lab = 1.3, ...)
   lines(names(x[[1]]$AUC_pred), x[[1]]$AUC_pred, col = cols[1], lwd = 2, type = "l")
   if(length(x) >= 2){
     for(i in 2:length(x)){
@@ -47,8 +50,8 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
   ymax <- max(sapply(x, function(t) max(t$Brier_pred, na.rm = TRUE) ))
   ymin <- min(sapply(x, function(t) min(t$Brier_pred, na.rm = TRUE) ))
   xlims <- as.numeric(names(x[[1]]$Brier_pred))
-  plot(NULL, ylim=c(ymin, ymax), ylab="Brier Score (lower is better)", xlab="Time since baseline (Years)",
-       xlim = c(min(xlims), max(xlims)), ...)
+  plot(NULL, ylim=c(ymin, ymax), ylab="Brier Score (lower is better)", xlab="Years since baseline",
+       xlim = c(min(xlims), max(xlims)), cex.lab = 1.3, ...)
   lines(names(x[[1]]$Brier_pred), x[[1]]$Brier_pred, col = cols[1], lwd = 2, type = "l")
   if(length(x) >= 2){
     for(i in 2:length(x)){
@@ -62,8 +65,8 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
     ymax <- max(sapply(x, function(t) max(t$MSE, na.rm = TRUE) ))
     ymin <- min(sapply(x, function(t) min(t$MSE, na.rm = TRUE) ))
     xlims <- as.numeric(names(x[[1]]$MSE))
-    plot(NULL, ylim=c(ymin, ymax), ylab="MSE (lower is better)", xlab="Time since baseline (Years)",
-         xlim = c(min(xlims), max(xlims)), ...)
+    plot(NULL, ylim=c(ymin, ymax), ylab="MSE (lower is better)", xlab="Years since baseline",
+         xlim = c(min(xlims), max(xlims)), cex.lab = 1.3, ...)
     lines(names(x[[1]]$MSE), x[[1]]$MSE, col = cols[1], lwd = 2, type = "l")
     if(length(x) >= 2){
       for(i in 2:length(x)){
@@ -79,8 +82,15 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
   }
   mtext(main_title,                   # Add main title
         side = 3,
-        line = - 2,
-        outer = TRUE)
-  legend(x = legend_pos, xpd = TRUE, inset = c(0, -0.1), legend = legend, lty = 1, lwd = 2, col = cols[1:length(x)], title = title)
+        line = - 3,
+        outer = TRUE,
+        cex = 1.3)
+  mtext(sub_title,                   # Add sub title
+        side = 3,
+        line = - 5,
+        outer = TRUE,
+        cex = 1.2,
+        col = "grey")
+  legend(x = legend_pos, xpd = TRUE, legend = legend, lty = 1, lwd = 2, col = cols[1:length(x)], title = title, inset = c(0, 1))
   title(...)
 }
