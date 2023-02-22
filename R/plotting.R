@@ -18,8 +18,9 @@
 plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_title = "", sub_title = "", col = NULL, ...){
   if(is.null(col)){
     #Automatically choose colors if none specified
-    qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
-    cols = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))  
+    #qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+    #cols = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))  
+    cols <- brewer.pal(8, "Dark2")
   } else{
     col = cols
   }
