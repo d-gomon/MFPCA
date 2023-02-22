@@ -10,6 +10,7 @@ plot_rcvlist(
   legend_pos = NULL,
   title = NULL,
   main_title = "",
+  sub_title = "",
   col = NULL,
   ...
 )
@@ -25,6 +26,8 @@ plot_rcvlist(
 
 \item{main_title}{Main title for plot.}
 
+\item{sub_title}{Subtitle for plot.}
+
 \item{col}{A vector of length(x) specifying which color to use for each object in x. Default uses qual pallette from brewer.pal.}
 
 \item{...}{Further parameters to plot()}
@@ -34,6 +37,6 @@ Can plot output of rcv_mfpccox() functions.
 }
 \section{Functions}{
 \itemize{
-\item \code{plot_rcvlist}: Plot prediction performance of rcv_mfpccox() output
-}}
+\item \code{plot_rcvlist()}: Plot prediction performance of rcv_mfpccox() output
 
+}}

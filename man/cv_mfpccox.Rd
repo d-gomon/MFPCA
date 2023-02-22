@@ -23,7 +23,7 @@ cv_mfpccox(
   reg_long = TRUE,
   IPCW_vars = "none",
   de_bug = FALSE,
-  trueSurv
+  truecdf = NULL
 )
 }
 \arguments{
@@ -63,7 +63,7 @@ Default is "none", meaning no IPCW will be performed.}
 
 \item{de_bug}{Development option. Returns intermediate steps in the output. Default = FALSE.}
 
-\item{trueSurv}{A matrix indicating the true Survival probabilities. Allows for comparing predicted and true survival probability}
+\item{truecdf}{A matrix indicating the true absolute risk (not landmarked) with column names indicating times and rows indicating subjects.}
 
 \item{mdat}{A multiFunData object containing longitudinal covariates}
 }

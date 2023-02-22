@@ -25,7 +25,7 @@ rcv_mfpccox(
   reg_baseline = FALSE,
   reg_long = TRUE,
   IPCW_vars = "none",
-  trueSurv
+  truecdf = NULL
 )
 }
 \arguments{
@@ -69,7 +69,7 @@ predicted process (pp) and univariate scores (uscores). Default = scores.}
 \item{IPCW_vars}{Vector indicating which variables should be used for Inverse Probability of Censoring Weights (IPCW) in determining validation scores.
 Default is "none", meaning no IPCW will be performed.}
 
-\item{trueSurv}{A matrix indicating the true Survival probabilities. Allows for comparing predicted and true survival probability}
+\item{truecdf}{A matrix indicating the true absolute risk (not landmarked) with column names indicating times and rows indicating subjects.}
 }
 \description{
 Same as cv_mfpccox(), but repeated instead of single cross validation.
