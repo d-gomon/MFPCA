@@ -308,8 +308,11 @@
 #' 
 #'   par(oldPar)
 #' }
-PACE <- function(funDataObject, predData = NULL, age.bl = NULL, age.bl.pred = NULL, nbasis = 10, nbasis_mu = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
+PACE <- function(funDataObject, predData = NULL, age.bl = NULL, age.bl.pred = NULL, nbasis = 10, nbasis_mu = NULL, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
 {
+  if(is.null(nbasis_mu)){
+    nbasis_mu <- nbasis_mu
+  }
   # check inputs
   if(! class(funDataObject) %in% c("funData", "irregFunData"))
     stop("Parameter 'funDataObject' must be a funData or irregFunData object.")
