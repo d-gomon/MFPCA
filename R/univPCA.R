@@ -48,8 +48,11 @@
 #' @importFrom mgcv gam predict.gam s te
 #'   
 #' @keywords internal
-.PACE <- function(X, Y, Y.pred = NULL, age.bl = NULL, age.bl.pred = NULL, nbasis = 10, nbasis_mu = 10, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
+.PACE <- function(X, Y, Y.pred = NULL, age.bl = NULL, age.bl.pred = NULL, nbasis = 10, nbasis_mu = NULL, pve = 0.99, npc = NULL, makePD = FALSE, cov.weight.type = "none")
 {
+  if(is.null(nbasis_mu)){
+    nbasis_mu <- nbasis
+  }
   if (is.null(Y.pred)){
     Y.pred = Y
     Ypred_mis <- TRUE
