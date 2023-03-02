@@ -12,6 +12,7 @@ plot_rcvlist(
   main_title = "",
   sub_title = "",
   col = NULL,
+  lty = NULL,
   ...
 )
 }
