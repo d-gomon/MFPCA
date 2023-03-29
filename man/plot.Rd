@@ -31,6 +31,8 @@ plot_rcvlist(
 
 \item{col}{A vector of length(x) specifying which color to use for each object in x. Default uses qual pallette from brewer.pal.}
 
+\item{lty}{A vector of length(x)}
+
 \item{...}{Further parameters to plot()}
 }
 \description{
