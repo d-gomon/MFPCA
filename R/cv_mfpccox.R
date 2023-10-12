@@ -239,18 +239,36 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   out <- pblapply(1:n_reps, function(x){
     #devtools::load_all()
     #suppressMessages(
-    cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, FakeLM = FakeLM,
+    tryCatch(
+      {cv_mfpccox(mFData, X_baseline, Y_surv, landmark_time = landmark_time, FakeLM = FakeLM,
     times_pred = times_pred, M = M, uniExpansions = uniExpansions, 
     age = age, AgeDM = AgeDM, type = type, n_folds = n_folds,
     seed = seed + x, verbose = verbose, reg_baseline = reg_baseline,
     reg_long = reg_long, IPCW_vars = IPCW_vars, truecdf = truecdf)
+      },
+    error = function(cond){
+      message(paste0("cv_mfpccox failed for repeat", x))
+      message("This repeat will not be included in final results.")
+      return(0)
+    }
+    )
     #)
     }, cl = cl)
   if(!is.null(cl)){
     stopCluster(cl)  
   }
-  AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
-  Brier_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
+  
+  out <<- out
+  
+  #Remove failed iterations
+  failed <- sapply(out, function(x) is.numeric(x))
+  message(paste0("cv_mfpccox failed for ", sum(failed), " repeats"))
+  out <- out[-which(failed)]
+  
+  out2 <<- out
+  
+  AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = length(out))
+  Brier_meas <- matrix(NA, nrow = length(times_pred), ncol = length(out))
   for(i in 1:length(out)){
     AUC_meas[,i] <- out[[i]]$AUC_pred
     Brier_meas[,i] <- out[[i]]$Brier_pred
@@ -260,7 +278,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   Brier <- rowMeans(Brier_meas)
   names(Brier) <- times_pred
   if(!is.null(truecdf)){
-    MSE_meas <- matrix(NA, nrow = length(times_pred), ncol = n_reps)
+    MSE_meas <- matrix(NA, nrow = length(times_pred), ncol = length(out))
     for(i in 1:length(out)){
       MSE_meas[,i] <- out[[i]]$MSE
     }
@@ -272,6 +290,9 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   if(!is.null(truecdf)){
     final$MSE <- MSE
   }
+  
+  final$n_reps <- length(out)
+  
   class(final) = "rcv_mfpccox"
   final
 }
