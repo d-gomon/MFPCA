@@ -258,14 +258,14 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
     stopCluster(cl)  
   }
   
-  out <<- out
   
   #Remove failed iterations
   failed <- sapply(out, function(x) is.numeric(x))
   message(paste0("cv_mfpccox failed for ", sum(failed), " repeats"))
-  out <- out[-which(failed)]
+  if(sum(failed) > 0){
+    out <- out[-which(failed)]  
+  }
   
-  out2 <<- out
   
   AUC_meas <- matrix(NA, nrow = length(times_pred), ncol = length(out))
   Brier_meas <- matrix(NA, nrow = length(times_pred), ncol = length(out))
