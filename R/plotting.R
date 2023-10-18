@@ -9,6 +9,8 @@
 #' @param sub_title Subtitle for plot.
 #' @param col A vector of length(x) specifying which color to use for each object in x. Default uses qual pallette from brewer.pal.
 #' @param lty A vector of length(x)
+#' @param at_risk Numeric vector indicating how many people are at risk at the prediction times. Should 
+#' have length of length(x[[1]][[1]]$AUC_pred)
 #' @param ... Further parameters to plot()
 #' 
 #' @describeIn plot Plot prediction performance of rcv_mfpccox() output
@@ -16,10 +18,12 @@
 #' @export
 
 
-plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_title = "", sub_title = "", col = NULL, lty = NULL, ...){
+plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, 
+                         main_title = "", sub_title = "", col = NULL, 
+                         lty = NULL,
+                         at_risk = NULL, ...){
   
   N <- length(x)
-  print(N)
   
   #----------------Graphical Parameters-----------------
   if(is.null(col)){
@@ -47,6 +51,12 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
     par(mar = c(5.1, 4.1, 7.1, 2.1))
   }
   
+  if(!is.null(at_risk)){
+    if(length(at_risk) != length(x[[1]]$AUC_pred)){
+      stop("at_risk not of right size")
+    }
+  }
+  
   
   #First we plot AUC
   ymax <- max(sapply(x, function(t) max(t$AUC_pred, na.rm = TRUE) ))
@@ -55,11 +65,20 @@ plot_rcvlist <- function(x, legend = "", legend_pos = NULL, title = NULL, main_t
   plot(NULL, ylim=c(ymin, ymax), ylab="tdAUC (higher is better)", xlab="Years since baseline",
        xlim = c(min(xlims), max(xlims)), cex.lab = 1.3, ...)
   lines(names(x[[1]]$AUC_pred), x[[1]]$AUC_pred, col = cols[1], lwd = 2, type = "l", lty = ltys[1])
+  if(!is.null(at_risk)){
+    at_temp <- pretty(xlims)
+    lab_temp <- at_risk[match(at_temp, xlims)]
+    at_temp <- at_temp[!is.na(lab_temp)]
+    lab_temp <- lab_temp[!is.na(lab_temp)]
+    axis(3, at = at_temp, labels = lab_temp, col.ticks = "red", line = 0, col = "red", col.axis = "red")
+    mtext("Number of people at risk:", side = 3, line = 3, col = "red")
+  }
   if(length(x) >= 2){
     for(i in 2:length(x)){
       lines(names(x[[i]]$AUC_pred), x[[i]]$AUC_pred, col = cols[i], lwd = 2, lty = ltys[i])
     }
   }
+  
   
   
   #Then we plot Brier

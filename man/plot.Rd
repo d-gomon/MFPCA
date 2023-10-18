@@ -13,6 +13,7 @@ plot_rcvlist(
   sub_title = "",
   col = NULL,
   lty = NULL,
+  at_risk = NULL,
   ...
 )
 }
@@ -32,6 +33,9 @@ plot_rcvlist(
 \item{col}{A vector of length(x) specifying which color to use for each object in x. Default uses qual pallette from brewer.pal.}
 
 \item{lty}{A vector of length(x)}
+
+\item{at_risk}{Numeric vector indicating how many people are at risk at the prediction times. Should 
+have length of length(x[[1]][[1]]$AUC_pred)}
 
 \item{...}{Further parameters to plot()}
 }
