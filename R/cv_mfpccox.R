@@ -156,8 +156,10 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     #We have: F(t) true and \widehat{S(t)}, given as truecdf and step3$prob_surv_pred respectively.
     #So we calculate S(t|t_LM) = 1 - (1-F(t))/(1-F(t_LM)) and \hat{S}(t|t_LM) = (1-\hat{S}(t))/(1 - \hat{S}(t_LM)) respectively
     if(!is.null(truecdf)){
+      #Extract correct TRUE survival probabilities.
       Ft_timespred <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(times_pred, colnames(truecdf))]
       Ft_lm <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(landmark_time, colnames(truecdf))]
+      #Extract predicted survival probabilities
       Sthat_timespred <- step3$prob_surv_pred[, match(times_pred, colnames(step3$prob_surv_pred))]
       if(isTRUE(FakeLM)){
         Sthat_lm <- step3$prob_surv_pred[, match(landmark_time, colnames(step3$prob_surv_pred))]  
@@ -165,9 +167,16 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
         Sthat_lm <- rep(1, nrow(Sthat_timespred))
       }
       
-      St_true <- (1-Ft_timespred)/(1-Ft_lm)
-      St_hat <- (Sthat_timespred)/(Sthat_lm)
-      MSE_surv[i,] <- colMeans((St_true - St_hat)^2)
+      for(l in seq_along(times_pred)){
+        at_risk <- which(step1$Y_surv_pred[,1] > times_pred[l])
+        MSE_surv[i,l] <- mean(((1-Ft_timespred[at_risk, l])/(1-Ft_lm[at_risk]) - (Sthat_timespred[at_risk, l])/(Sthat_lm[at_risk]))^2)
+      }
+      #We only want to compare for patients that are still at risk:
+      #at_risk <- which(step1$Y_surv_pred[,1] > landmark_time)
+      
+      #St_true <- (1-Ft_timespred[at_risk, ])/(1-Ft_lm[at_risk])
+      #St_hat <- (Sthat_timespred[at_risk, ])/(Sthat_lm[at_risk])
+      #MSE_surv[i,] <- colMeans((St_true - St_hat)^2)
     }
   }
   #Average AUC over folds:
