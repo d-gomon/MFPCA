@@ -222,7 +222,7 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
                        age = NULL, type = c("scores", "AUC", "pp", "uscores"), n_reps = 10, 
                        n_folds = 10, seed = 01041996, displaypb = FALSE, 
                        n_cores = 1, verbose = FALSE,
-                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none", truecdf = NULL){
+                       reg_baseline = FALSE, reg_long = TRUE, IPCW_vars = "none", de_bug = FALSE, truecdf = NULL){
   
   if(n_cores > 1){
     #Create a cluster for parallel computing and error check
@@ -301,6 +301,10 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
   }
   
   final$n_reps <- length(out)
+  
+  if(isTRUE(de_bug)){
+    final$out <- out
+  }
   
   class(final) = "rcv_mfpccox"
   final
