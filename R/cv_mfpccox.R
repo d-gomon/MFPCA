@@ -52,6 +52,7 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
   rownames(Y_surv) <- 1:nrow(Y_surv)
   
   #First we landmark the data
+  #if landmark_time_temp = NULL, then we do not remove any data (we do this later in landmark_data_fake)
   step1 <- landmark_data(time = landmark_time_temp, mFData_train = mFData, 
                          X_baseline_train = X_baseline, Y_surv_train = Y_surv,
                          age_train = age)
@@ -69,14 +70,14 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
   AUC_temp <- matrix(NA, nrow = n_folds, ncol = length(times_pred))
   Brier_temp <- matrix(NA, nrow = n_folds, ncol = length(times_pred))
   
-  if(!is.null(truecdf)){
-    MSE_surv <- matrix(NA, nrow = n_folds, ncol = length(times_pred))
-    truecdf <- truecdf[, match(c(landmark_time, times_pred), colnames(truecdf))]
-  }
+
   
   MSE_func <- function(a, b){
     return(mean((a-b)^2))
   }
+  
+  #Initiate predicted probabilities to store the output from the folds.
+  predProbabilities <- matrix(ncol = length(times_pred) + 1, nrow = 0)
   
   for(i in 1:n_folds){
     message(paste("Working on fold", i))
@@ -148,42 +149,28 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     step3 <- predict_surv(step2 = step2, times_pred = times_pred, 
                           reg_baseline = reg_baseline, reg_long = reg_long, IPCW_vars = IPCW_vars)
     
-    #Calculate AUC for current fold
-    AUC_temp[i, ] <- step3$AUC_pred
-    Brier_temp[i, ] <- step3$Brier_pred
     
-    #If true absolute risk is specified, calculate MSE between Landmarked Survival probability and actual landmarked survival probability
-    #We have: F(t) true and \widehat{S(t)}, given as truecdf and step3$prob_surv_pred respectively.
-    #So we calculate S(t|t_LM) = 1 - (1-F(t))/(1-F(t_LM)) and \hat{S}(t|t_LM) = (1-\hat{S}(t))/(1 - \hat{S}(t_LM)) respectively
-    if(!is.null(truecdf)){
-      #Extract correct TRUE survival probabilities.
-      Ft_timespred <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(times_pred, colnames(truecdf))]
-      Ft_lm <- truecdf[as.numeric(rownames(step1$Y_surv_pred)), match(landmark_time, colnames(truecdf))]
-      #Extract predicted survival probabilities
-      Sthat_timespred <- step3$prob_surv_pred[, match(times_pred, colnames(step3$prob_surv_pred))]
-      if(isTRUE(FakeLM)){
-        Sthat_lm <- step3$prob_surv_pred[, match(landmark_time, colnames(step3$prob_surv_pred))]  
-      } else{
-        Sthat_lm <- rep(1, nrow(Sthat_timespred))
-      }
-      
-      # for(l in seq_along(times_pred)){
-      #   at_risk <- which(step1$Y_surv_pred[,1] > times_pred[l])
-      #   MSE_surv[i,l] <- mean(((1-Ft_timespred[at_risk, l])/(1-Ft_lm[at_risk]) - (Sthat_timespred[at_risk, l])/(Sthat_lm[at_risk]))^2)
-      # }
-      
-      St_true <- (1-Ft_timespred)/(1-Ft_lm)
-      St_hat <- (Sthat_timespred)/(Sthat_lm)
-      MSE_surv[i,] <- colMeans((St_true - St_hat)^2)
+    #Store Predicted survival probabilities so we can feed them to validate_model later.
+    predProbabilities <- rbind(predProbabilities, step3$predRisk)
+    if(i == 1){
+      preddat_stacked <- step3$preddat
+    } else{
+      preddat_stacked <- rbind(preddat_stacked, step3$preddat, fill = TRUE)
     }
+    
+    
+    
   }
-  #Average AUC over folds:
-  AUC <- colMeans(AUC_temp, na.rm = TRUE)
-  names(AUC) <- times_pred
-  Brier <- colMeans(Brier_temp, na.rm = TRUE)
-  names(Brier) <- times_pred
-  out <- list(AUC_pred = AUC,
-              Brier_pred = Brier,
+  
+  message("Evaluating predictive performance of model.")
+  #We validate the predicted probabilities
+  step4 <- validate_model(predRisk = predProbabilities, preddat = preddat_stacked, 
+                          times_pred = times_pred,
+                          IPCW_vars = IPCW_vars, truecdf = truecdf, 
+                          landmark_time = landmark_time, FakeLM = FakeLM, de_bug = de_bug)
+  
+  out <- list(AUC_pred = step4$AUC_pred,
+              Brier_pred = step4$Brier_pred,
               landmark_time = step3$landmark_time)
   
   
@@ -191,11 +178,10 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     out$step1 <- step1
     out$step2 <- step2
     out$step3 <- step3
+    out$step4 <- step4
   }
   if(!is.null(truecdf)){
-    MSE <- colMeans(MSE_surv, na.rm = TRUE)
-    names(MSE) <- times_pred
-    out$MSE <- MSE
+    out$MSE <- step4$MSE
   }
   return(out)
 }

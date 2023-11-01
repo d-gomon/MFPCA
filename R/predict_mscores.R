@@ -136,10 +136,14 @@ get_mscores <- function(step1, type = c("scores", "AUC", "pp", "uscores"), M = N
   #Add the summaries to the baseline covariates
   traindat <- as.data.frame(cbind(long_sum_train, X_baseline_train))
   X_train <- model.matrix(~.-1, traindat)
+  rownames(traindat) <- rownames(Y_surv_train)
+  rownames(X_train) <- rownames(Y_surv_train)
   
   
   preddat <- as.data.frame(cbind(long_sum_pred, X_baseline_pred))
   X_pred <- model.matrix(~.-1, preddat)
+  rownames(preddat) <- rownames(Y_surv_pred)
+  rownames(X_pred) <- rownames(Y_surv_pred)
   
   
   p_long = ncol(long_sum_train)

@@ -5,7 +5,6 @@
 #' 
 #' @param step2 output of get_mscores
 #' @param times_pred Times at which prediction is required. Default = landmark_time (useless).
-#' @param accuracy_train Should accuracy measures (AUC/Brier score) be calculated on the training set?
 #' @param reg_baseline Should baseline covariates be regularized?
 #' @param reg_long Should longitudinal covariates be regularized?
 #' @param alpha Regularization scaling. Alpha = 1 (lasso), alpha = 0 (ridge), between 0 and 1 = elastic net. Default = 1 (lasso)
@@ -29,7 +28,7 @@
 
 predict_surv <- function(step2, times_pred, 
                          reg_baseline = FALSE, 
-                         reg_long = TRUE, alpha = 1, accuracy_train = NULL, IPCW_vars = c("none", "all")){
+                         reg_long = TRUE, alpha = 1, IPCW_vars = c("none", "all")){
   
   if(identical(IPCW_vars, c("none", "all"))){
     IPCW_vars = "none"
@@ -119,17 +118,6 @@ predict_surv <- function(step2, times_pred,
   
   
   
-  
-  #Evaluate AUC for training data.
-  if(isTRUE(accuracy_train)){
-    #Not implemented yet. FUTURE? Rewrite riskRegression::Score but validate using training data.
-    #Not very interesting probably.
-  } else{
-    AUC_train = NULL
-    Brier_train = NULL
-  }
-  
-  
   #Evaluate AUC here for prediction data if Y_pred specified. Otherwise, don't. Just don't.
   if(!is.null(Y_pred)){
     
@@ -159,7 +147,7 @@ predict_surv <- function(step2, times_pred,
     
     #First we predict the absolute risk for all relevant time points:
     predRisk <- predictRisk(survival_from_glm, preddat, c(landmark_time, times_pred))
-    rownames(predRisk) <- rownames(X_pred)
+    rownames(predRisk) <- rownames(Y_pred)
     colnames(predRisk) <- c(landmark_time, times_pred)
     
     
@@ -218,15 +206,16 @@ predict_surv <- function(step2, times_pred,
   }
   
   out <- list(prob_surv_pred = 1- predRisk,
-              #prob_surv_train = 1- predRisk_train,
+              predRisk = predRisk,
+              preddat = preddat,
               cox_train = cv_fit_train,
               times_pred = times_pred,
               AUC_pred = AUC_pred,
-              AUC_train = AUC_train,
               Brier_pred = Brier_pred,
-              Brier_train = Brier_train,
               landmark_time = landmark_time,
               lp_pred = lp_pred,
+              reg_baseline = reg_baseline,
+              reg_long = reg_long,
               M = M,
               PVE = mPVE)
   return(out)

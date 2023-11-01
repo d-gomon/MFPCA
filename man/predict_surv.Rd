@@ -10,7 +10,6 @@ predict_surv(
   reg_baseline = FALSE,
   reg_long = TRUE,
   alpha = 1,
-  accuracy_train = NULL,
   IPCW_vars = c("none", "all")
 )
 }
@@ -24,8 +23,6 @@ predict_surv(
 \item{reg_long}{Should longitudinal covariates be regularized?}
 
 \item{alpha}{Regularization scaling. Alpha = 1 (lasso), alpha = 0 (ridge), between 0 and 1 = elastic net. Default = 1 (lasso)}
-
-\item{accuracy_train}{Should accuracy measures (AUC/Brier score) be calculated on the training set?}
 
 \item{IPCW_vars}{Character vector indicating which variables to use for IPCW.
 Extra options are "all" (all baseline variables) and "none" (don't perform IPCW). Default is no IPCW ("none").}
