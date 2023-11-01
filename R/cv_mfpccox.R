@@ -179,6 +179,8 @@ cv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM 
     out$step2 <- step2
     out$step3 <- step3
     out$step4 <- step4
+    out$predProbabilities = predProbabilities
+    out$preddat_stacked = preddat_stacked
   }
   if(!is.null(truecdf)){
     out$MSE <- step4$MSE
