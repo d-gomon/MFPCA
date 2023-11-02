@@ -268,16 +268,16 @@ rcv_mfpccox <- function(mFData, X_baseline, Y_surv, landmark_time = NULL, FakeLM
     AUC_meas[,i] <- out[[i]]$AUC_pred
     Brier_meas[,i] <- out[[i]]$Brier_pred
   }
-  AUC <- rowMeans(AUC_meas)
+  AUC <- rowMeans(AUC_meas, na.rm = TRUE)
   names(AUC) <- times_pred
-  Brier <- rowMeans(Brier_meas)
+  Brier <- rowMeans(Brier_meas, na.rm = TRUE)
   names(Brier) <- times_pred
   if(!is.null(truecdf)){
     MSE_meas <- matrix(NA, nrow = length(times_pred), ncol = length(out))
     for(i in 1:length(out)){
       MSE_meas[,i] <- out[[i]]$MSE
     }
-    MSE <- rowMeans(MSE_meas)
+    MSE <- rowMeans(MSE_meas, na.rm = TRUE)
     names(MSE) <- times_pred
   }
   final <- list(AUC_pred = AUC,

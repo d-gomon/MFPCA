@@ -157,7 +157,7 @@ validate_model <- function(predRisk, preddat, times_pred, IPCW_vars = c("none", 
     
     St_true <- (1-Ft_timespred)/(1-Ft_lm)
     St_hat <- (Sthat_timespred)/(Sthat_lm)
-    MSE_surv <- colMeans((St_true - St_hat)^2)
+    MSE_surv <- colMeans((St_true - St_hat)^2, na.rm = TRUE)
     names(MSE_surv) <- times_pred
     out$MSE <- MSE_surv
   }
